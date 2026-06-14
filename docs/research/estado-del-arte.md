@@ -186,15 +186,24 @@ El MA-CJD es la base más sólida y reutilizable. Diferenciadores concretos del 
 
 Dos usos: (i) **data augmentation** para clasificación de modulación cuando las muestras reales escasean (especialmente señales **LPI**, escasas por diseño), y (ii) **diseño generativo de formas de onda** con propiedades deseadas (baja probabilidad de detección/interceptación). Los enfoques ganadores son **cGAN** y **Wasserstein DCGAN con atención** para *small-sample*. Tendencia emergente 2025-26: **híbridos físico + generativo** (p. ej. SA-Radar) y **modelos de difusión** desplazando a la GAN pura en algunas tareas radar.
 
-### 4.2 Caso de estudio — cWGAN-GP para formas de onda radar LPD
-*(lectura completa: arXiv 2403.12254)*
+### 4.2 Caso de estudio (deep dive) — cWGAN-GP para formas de onda radar LPD
+*(lectura completa del PDF: arXiv 2403.12254, publicado en IEEE Trans. Radar Systems 2025, DOI 10.1109/TRS.2025.3542283 — artículo 04)*
 
 Es especialmente relevante porque **usa el mismo dataset RadioML 2018.01A** de la capa de datos del proyecto, como distribución de fondo RF.
 
 - **Problema:** diseñar formas de onda que sean simultáneamente difíciles de detectar (LPD) y buenas sensando (función de ambigüedad tipo "thumbtack"). Optimización multiobjetivo: minimizar la **divergencia KL** entre la distribución de la forma de onda generada y el fondo RF ambiente, manteniendo el lóbulo principal estrecho y los lóbulos laterales suprimidos.
 - **Arquitectura:** **Conditional Wasserstein GAN con Gradient Penalty (cWGAN-GP)**. Generador 1D-ResNeXt (12,2 M parámetros) que toma ruido `z` + vector condicional `y` (muestra instantánea del fondo RF) y produce una **forma de onda IQ compleja de 1024 muestras** (salida `2·tanh(x/2)`). Crítico simétrico (11,7 M parámetros) con *layer normalization* (compatible con gradient penalty). Pérdida Wasserstein-1 + penalización de gradiente (λ) + pérdida de ambigüedad (lóbulo principal y laterales) en *fine-tuning*.
 - **Entrenamiento:** fase 1 solo WGAN-GP hasta converger; fase 2, 3.000 iteraciones con `L_W + η·L_ambig`. Adam (gen, LR 1×10⁻⁵), RMSProp (crítico, LR 5×10⁻⁵), batch 512 en 2× V100, 5 iteraciones de crítico por 1 de generador. Fondo RF: **RadioML 2018.01A** (24 modulaciones, –20..+30 dB), con 50 % para entrenar el generador y 50 % el detector (sin solape).
-- **Resultados:** con igual número de muestras, las formas de onda generadas se detectan solo al **19,5 % ± 5,5 % a 1 % de FAR** frente a 95–99 % de las formas base (**~90 % menos detectabilidad**). Con 10× y 100× más datos de entrenamiento, el detector sube a 70 % y 80,8 % (la dificultad persiste). Rendimiento de sensado (ancho de lóbulo principal, PSL, ambigüedad Doppler) ajustable vía η, con compromiso explícito LPD↔sensado.
+- **Resultados (detección a 1 % de FAR con detector ResNet-18):**
+
+  | Forma de onda | Tasa de detección @1 % FAR |
+  |---|---|
+  | Formas base (radar SIDLE) | 95–99 % |
+  | **Generadas cWGAN-GP** (mismo nº muestras) | **19,5 % ± 5,5 %** |
+  | Generadas, detector con 10× datos | ~70 % |
+  | Generadas, detector con 100× datos | 80,8 % |
+
+  Es decir, **~90 % menos detectabilidad** con igual entrenamiento; la dificultad persiste aun dando 100× más datos al detector. El detector ciclostacionario (FAM) directamente falla a FAR bajo. El sensado (ancho de lóbulo principal, PSL, ambigüedad Doppler) es **ajustable vía η** con compromiso explícito LPD↔sensado.
 - **Limitaciones declaradas:** ancho de pulso fijo; dependencia del fondo (peor sensado cuando se condiciona en AM/FM); degradación ante interferencia a 0 dB; coste de entrenamiento (≈24 M parámetros, 2× V100); latencia de inferencia no reportada.
 
 ### 4.3 Hueco / oportunidad para el TFM (modelo 4)
@@ -242,7 +251,7 @@ No es un frente de ML, sino el **baseline rule-based** contra el que se mide la 
 1. *Deep Reinforcement Learning Based Decision Making for Complex Jamming Waveforms* — Sensors (PMC9601320). https://pmc.ncbi.nlm.nih.gov/articles/PMC9601320/
 2. *Airborne Radar Anti-Jamming Waveform Design Based on Deep Reinforcement Learning* — Sensors (PMC9692253). https://pmc.ncbi.nlm.nih.gov/articles/PMC9692253/
 3. *Specific Radar Recognition Based on Characteristics of Emitted Radio Waveforms Using CNNs* — Sensors (PMC8707803). https://pmc.ncbi.nlm.nih.gov/articles/PMC8707803/
-4. *Adaptive LPD Radar Waveform Design with Generative Deep Learning* — arXiv 2403.12254. https://arxiv.org/html/2403.12254
+4. *Adaptive LPD Radar Waveform Design with Generative Deep Learning* — arXiv 2403.12254 / IEEE Trans. Radar Systems 2025, DOI 10.1109/TRS.2025.3542283. https://arxiv.org/html/2403.12254
 5. *Coordinated Anti-Jamming Resilience in Swarm Networks via Multi-Agent RL* — arXiv 2512.16813. https://arxiv.org/abs/2512.16813
 7. *A cooperative jamming decision-making method based on MARL (MA-CJD: QMIX + MP-DQN + Double DQN)* — Cai et al., Autonomous Intelligent Systems 5:3, 2025 (SpringerOpen, acceso abierto). https://doi.org/10.1007/s43684-025-00090-4
 
