@@ -115,16 +115,17 @@ cog_ew/
 
 ## Lo que Claude debe evitar
 
-- No commitear sin que se solicite explícitamente
+- No commitear sin que se solicite explícitamente, **salvo que una skill en ejecución lo indique como paso de su flujo** (p. ej. `superpowers:brainstorming` commitea el spec de diseño)
 - No exponer en logs ni artefactos parámetros de amenazas reales o datos sensibles de EW
 
 ## Flujo de trabajo habitual
 
-1. Nuevas features/modelos: usar `superpowers:brainstorming` antes de implementar
-2. Implementar lógica crítica con `superpowers:test-driven-development` (preprocesado de señales, métricas EW, reward del entorno RL)
-3. Bugs o comportamiento inesperado (no converge, NaN, etc.): usar `superpowers:systematic-debugging`
-4. Antes de declarar algo completo: usar `superpowers:verification-before-completion`
-5. Al terminar una rama: usar `superpowers:finishing-a-development-branch`
+1. Usar `superpowers` por defecto para código o diseño del peoyecto
+2. Nuevas features/modelos: usar `superpowers:brainstorming` antes de implementar
+3. Implementar lógica crítica con `superpowers:test-driven-development` (preprocesado de señales, métricas EW, reward del entorno RL)
+4. Bugs o comportamiento inesperado (no converge, NaN, etc.): usar `superpowers:systematic-debugging`
+5. Antes de declarar algo completo: usar `superpowers:verification-before-completion`
+6. Al terminar una rama: usar `superpowers:finishing-a-development-branch`
 
 ## Plugins y skills recomendados (cuándo usarlos)
 
