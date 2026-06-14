@@ -1,4 +1,6 @@
-from cog_ew.data.loaders import MODULATIONS_2018, RadioMLConfig
+import pytest
+
+from cog_ew.data.loaders import MODULATIONS_2018, RadioMLConfig, resolve_h5_path
 
 
 def test_modulations_count():
@@ -32,3 +34,42 @@ def test_config_from_yaml(tmp_path):
     assert config.modulations == ("BPSK", "QPSK")
     assert config.normalize is False
     assert config.seed == 7
+
+
+def test_resolve_h5_path_explicit_existing(tmp_path):
+    h5 = tmp_path / "data.h5"
+    h5.write_bytes(b"")
+    config = RadioMLConfig(h5_path=str(h5))
+
+    assert resolve_h5_path(config) == h5
+
+
+def test_resolve_h5_path_explicit_missing():
+    config = RadioMLConfig(h5_path="/nope/missing.h5")
+
+    with pytest.raises(FileNotFoundError):
+        resolve_h5_path(config)
+
+
+def test_resolve_h5_path_none_set():
+    config = RadioMLConfig(h5_path=None, kaggle_dataset=None)
+
+    with pytest.raises(FileNotFoundError):
+        resolve_h5_path(config)
+
+
+def test_resolve_h5_path_kaggle(tmp_path, monkeypatch):
+    download_dir = tmp_path / "kaggle_cache"
+    download_dir.mkdir()
+    (download_dir / "GOLD_XYZ_OSC.0001_1024x2M.h5").write_bytes(b"")
+
+    import cog_ew.data.loaders as loaders
+
+    def fake_download(dataset: str) -> str:
+        assert dataset == "pinxau1000/radioml2018"
+        return str(download_dir)
+
+    monkeypatch.setattr(loaders.kagglehub, "dataset_download", fake_download)
+    config = RadioMLConfig(h5_path=None)
+
+    assert resolve_h5_path(config).name == "GOLD_XYZ_OSC.0001_1024x2M.h5"
