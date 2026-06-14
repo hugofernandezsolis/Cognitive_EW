@@ -53,6 +53,12 @@ class RadioMLConfig:
     normalize: bool = True
     seed: int = 0
 
+    def __post_init__(self) -> None:
+        if self.modulations is not None:
+            unknown = set(self.modulations) - set(MODULATIONS_2018)
+            if unknown:
+                raise ValueError(f"Modulaciones desconocidas en config: {sorted(unknown)}")
+
     @classmethod
     def from_yaml(cls, path: str | Path) -> RadioMLConfig:
         with open(path) as fh:

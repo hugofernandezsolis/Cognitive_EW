@@ -84,6 +84,11 @@ def test_resolve_h5_path_kaggle(tmp_path, monkeypatch):
     assert resolve_h5_path(config).name == "GOLD_XYZ_OSC.0001_1024x2M.h5"
 
 
+def test_config_rejects_unknown_modulation():
+    with pytest.raises(ValueError):
+        RadioMLConfig(modulations=("BPSK", "NOPE"))
+
+
 def test_resolve_h5_path_kaggle_multiple_h5(tmp_path, monkeypatch):
     download_dir = tmp_path / "kaggle_cache"
     download_dir.mkdir()
