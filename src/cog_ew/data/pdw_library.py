@@ -82,3 +82,10 @@ class EmitterLibrary:
 
     def emitter_names(self) -> tuple[str, ...]:
         return tuple(e.name for e in self.emitters)
+
+    def lpi_indices(self) -> tuple[int, ...]:
+        return tuple(
+            i
+            for i, emitter in enumerate(self.emitters)
+            if any(mode_spec.lpi for mode_spec in emitter.modes.values())
+        )

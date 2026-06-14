@@ -59,3 +59,9 @@ def test_lpi_emitters_declare_lpi_modulation():
         for mode_spec in emitter.modes.values():
             if mode_spec.lpi:
                 assert any(m in ("fmcw", "polyphase") for m in mode_spec.intra_pulse_mods)
+
+
+def test_lpi_indices_returns_lpi_emitter_positions():
+    lib = EmitterLibrary.from_yaml(CONFIG)
+    # LPI-FMCW y LPI-polyphase son los dos últimos de la taxonomía
+    assert lib.lpi_indices() == (6, 7)
