@@ -84,6 +84,21 @@ def test_resolve_h5_path_kaggle(tmp_path, monkeypatch):
     assert resolve_h5_path(config).name == "GOLD_XYZ_OSC.0001_1024x2M.h5"
 
 
+def test_resolve_h5_path_kaggle_multiple_h5(tmp_path, monkeypatch):
+    download_dir = tmp_path / "kaggle_cache"
+    download_dir.mkdir()
+    (download_dir / "a.h5").write_bytes(b"")
+    (download_dir / "b.h5").write_bytes(b"")
+
+    import cog_ew.data.loaders as loaders
+
+    monkeypatch.setattr(loaders.kagglehub, "dataset_download", lambda _: str(download_dir))
+    config = RadioMLConfig(h5_path=None)
+
+    with pytest.raises(FileNotFoundError):
+        resolve_h5_path(config)
+
+
 def test_mask_to_runs_basic():
     mask = np.array([False, True, True, False, True])
 

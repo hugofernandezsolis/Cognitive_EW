@@ -77,6 +77,12 @@ def resolve_h5_path(config: RadioMLConfig) -> Path:
             raise FileNotFoundError(
                 f"No se encontró ningún .h5 en la descarga de {config.kaggle_dataset}"
             )
+        if len(candidates) > 1:
+            names = [str(c) for c in candidates]
+            raise FileNotFoundError(
+                f"Se encontraron varios .h5 en la descarga de {config.kaggle_dataset}; "
+                f"especifica h5_path explícitamente: {names}"
+            )
         return candidates[0]
     raise FileNotFoundError("Define h5_path o kaggle_dataset en RadioMLConfig")
 
