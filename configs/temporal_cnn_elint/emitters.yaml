@@ -1,0 +1,41 @@
+emitters:
+  - name: SA-2
+    modes:
+      search: {rf_band: [2.9, 3.1], pri_pattern: fixed, pri_range: [800, 1200], pw_range: [1.0, 3.0], scan_period: 10.0, freq_hopping: false, lpi: false, intra_pulse_mods: [none]}
+      track: {rf_band: [2.9, 3.1], pri_pattern: jitter, pri_range: [400, 600], pw_range: [0.8, 1.5], scan_period: 2.0, freq_hopping: false, lpi: false, intra_pulse_mods: [none, lfm]}
+      missile_guidance: {rf_band: [3.0, 3.2], pri_pattern: stagger, pri_range: [200, 400], pw_range: [0.5, 1.0], scan_period: 1.0, freq_hopping: false, lpi: false, intra_pulse_mods: [lfm]}
+  - name: SA-6
+    modes:
+      search: {rf_band: [4.0, 4.4], pri_pattern: fixed, pri_range: [700, 1000], pw_range: [1.0, 2.5], scan_period: 8.0, freq_hopping: false, lpi: false, intra_pulse_mods: [none]}
+      track: {rf_band: [8.0, 9.0], pri_pattern: jitter, pri_range: [300, 500], pw_range: [0.4, 1.0], scan_period: 1.5, freq_hopping: true, lpi: false, intra_pulse_mods: [lfm]}
+      missile_guidance: {rf_band: [8.0, 9.0], pri_pattern: stagger, pri_range: [150, 300], pw_range: [0.3, 0.8], scan_period: 1.0, freq_hopping: true, lpi: false, intra_pulse_mods: [lfm]}
+  - name: S-300
+    modes:
+      search: {rf_band: [0.6, 1.0], pri_pattern: fixed, pri_range: [1000, 1500], pw_range: [5.0, 15.0], scan_period: 12.0, freq_hopping: false, lpi: false, intra_pulse_mods: [none, lfm]}
+      tws: {rf_band: [4.0, 6.0], pri_pattern: stagger, pri_range: [500, 800], pw_range: [2.0, 6.0], scan_period: 4.0, freq_hopping: true, lpi: false, intra_pulse_mods: [lfm]}
+      track: {rf_band: [8.0, 10.0], pri_pattern: jitter, pri_range: [250, 450], pw_range: [0.5, 2.0], scan_period: 1.0, freq_hopping: true, lpi: false, intra_pulse_mods: [lfm, barker]}
+      missile_guidance: {rf_band: [8.0, 10.0], pri_pattern: stagger, pri_range: [120, 260], pw_range: [0.3, 1.0], scan_period: 0.8, freq_hopping: true, lpi: false, intra_pulse_mods: [barker]}
+  - name: S-400
+    modes:
+      search: {rf_band: [0.6, 1.2], pri_pattern: fixed, pri_range: [900, 1400], pw_range: [5.0, 20.0], scan_period: 10.0, freq_hopping: false, lpi: false, intra_pulse_mods: [none, lfm]}
+      tws: {rf_band: [4.0, 8.0], pri_pattern: stagger, pri_range: [400, 700], pw_range: [1.5, 5.0], scan_period: 3.0, freq_hopping: true, lpi: false, intra_pulse_mods: [lfm, barker]}
+      track: {rf_band: [8.0, 12.0], pri_pattern: jitter, pri_range: [200, 400], pw_range: [0.4, 1.5], scan_period: 0.9, freq_hopping: true, lpi: false, intra_pulse_mods: [barker]}
+      missile_guidance: {rf_band: [8.0, 12.0], pri_pattern: stagger, pri_range: [100, 220], pw_range: [0.2, 0.8], scan_period: 0.7, freq_hopping: true, lpi: false, intra_pulse_mods: [barker]}
+  - name: HQ-9
+    modes:
+      search: {rf_band: [0.8, 1.4], pri_pattern: fixed, pri_range: [900, 1300], pw_range: [4.0, 12.0], scan_period: 9.0, freq_hopping: false, lpi: false, intra_pulse_mods: [none, lfm]}
+      track: {rf_band: [8.0, 10.0], pri_pattern: jitter, pri_range: [220, 420], pw_range: [0.5, 1.8], scan_period: 1.0, freq_hopping: true, lpi: false, intra_pulse_mods: [lfm, barker]}
+      missile_guidance: {rf_band: [8.0, 10.0], pri_pattern: stagger, pri_range: [110, 240], pw_range: [0.3, 0.9], scan_period: 0.8, freq_hopping: true, lpi: false, intra_pulse_mods: [barker]}
+  - name: AESA
+    modes:
+      search: {rf_band: [8.0, 12.0], pri_pattern: stagger, pri_range: [300, 600], pw_range: [1.0, 5.0], scan_period: 2.0, freq_hopping: true, lpi: false, intra_pulse_mods: [lfm, barker]}
+      tws: {rf_band: [8.0, 12.0], pri_pattern: stagger, pri_range: [200, 400], pw_range: [0.8, 3.0], scan_period: 1.0, freq_hopping: true, lpi: false, intra_pulse_mods: [barker]}
+      track: {rf_band: [8.0, 12.0], pri_pattern: jitter, pri_range: [120, 280], pw_range: [0.4, 1.2], scan_period: 0.5, freq_hopping: true, lpi: false, intra_pulse_mods: [barker]}
+  - name: LPI-FMCW
+    modes:
+      search: {rf_band: [9.0, 10.0], pri_pattern: jitter, pri_range: [50, 150], pw_range: [50.0, 200.0], scan_period: 3.0, freq_hopping: true, lpi: true, intra_pulse_mods: [fmcw]}
+      track: {rf_band: [9.0, 10.0], pri_pattern: jitter, pri_range: [30, 90], pw_range: [40.0, 150.0], scan_period: 1.0, freq_hopping: true, lpi: true, intra_pulse_mods: [fmcw]}
+  - name: LPI-polyphase
+    modes:
+      search: {rf_band: [14.0, 16.0], pri_pattern: jitter, pri_range: [40, 120], pw_range: [40.0, 180.0], scan_period: 2.5, freq_hopping: true, lpi: true, intra_pulse_mods: [polyphase]}
+      track: {rf_band: [14.0, 16.0], pri_pattern: jitter, pri_range: [25, 80], pw_range: [30.0, 120.0], scan_period: 0.9, freq_hopping: true, lpi: true, intra_pulse_mods: [polyphase]}
