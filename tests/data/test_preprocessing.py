@@ -1,6 +1,11 @@
 import numpy as np
 
-from cog_ew.data.preprocessing import complex_to_iq, iq_to_complex, normalize_power, to_channels_first
+from cog_ew.data.preprocessing import (
+    complex_to_iq,
+    iq_to_complex,
+    normalize_power,
+    to_channels_first,
+)
 
 
 def test_normalize_power_unit_mean_power_single_example():
@@ -15,7 +20,10 @@ def test_normalize_power_unit_mean_power_single_example():
 
 def test_normalize_power_batched():
     rng = np.random.default_rng(1)
-    iq = rng.normal(size=(4, 128, 2)).astype(np.float32) * np.array([1.0, 2.0, 3.0, 4.0])[:, None, None]
+    iq = (
+        rng.normal(size=(4, 128, 2)).astype(np.float32)
+        * np.array([1.0, 2.0, 3.0, 4.0])[:, None, None]
+    )
 
     out = normalize_power(iq)
 
