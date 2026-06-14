@@ -12,7 +12,10 @@ description = "Cognitive Electronic Warfare System — Deep RL para jamming adap
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "h5py>=3.16.0",
+    "kagglehub>=1.0.2",
     "numpy>=2.4.6",
+    "pyyaml>=6.0.3",
     "scipy>=1.17.1",
     "torch>=2.6.0",
     "torchvision>=0.21.0",
@@ -23,6 +26,7 @@ dev = [
     "mypy>=2.1.0",
     "pytest>=9.1.0",
     "ruff>=0.15.17",
+    "types-pyyaml>=6.0.12.20260518",
 ]
 
 [[tool.uv.index]]
