@@ -213,14 +213,30 @@ Posicionar la GAN **no como fin sino como augmentation con impacto medible**: ab
 
 ## 5. Librería EW convencional (baseline)
 
-### 5.1 Rol
+> No es un frente de ML, sino el **baseline rule-based** contra el que se mide la mejora de los modelos 1-4. *(La patente US 11808882 descargada como artículo 16 es un PDF escaneado sin capa de texto; el contenido de esta sección procede de la taxonomía documentada en MA-CJD (art. 07) y de EMSOPEDIA.)*
 
-No es un frente de ML, sino el **baseline rule-based** contra el que se mide la mejora de los modelos 1-4. La literatura de GE cognitiva confirma y justifica su uso como suelo de rendimiento: los sistemas ECM tradicionales (noise preset, repeater, deception, chaff, decoys, maniobras evasivas) dependen de **librería de amenazas pre-cargada** y **fallan ante amenazas "zero-day"** y radares digitales programables con waveforms flexibles (EMSOPEDIA, *Cognitive EW*; patente US 11808882 sobre ECM sin base de datos de amenazas).
+### 5.1 Taxonomía de los métodos convencionales
 
-### 5.2 Diseño recomendado para el TFM
-- Implementar un selector determinista amenaza→contramedida que reproduzca la doctrina clásica.
-- Usarlo como **fila de referencia** en todas las tablas comparativas: el objetivo >92 % de victorias se mide *contra* este baseline, y la mejora de los modelos RL/CNN debe ser estadísticamente significativa.
-- Evita afirmaciones cualitativas: cuantifica el delta (win rate, J/S, burnthrough) modelo cognitivo − baseline.
+La literatura (intro de MA-CJD, art. 07) clasifica la decisión de jamming **no basada en aprendizaje** en tres familias, todas dependientes de la escala y calidad del conocimiento previo:
+
+1. **Basados en reglas:** construyen una **librería de reglas/amenazas pre-definida** y seleccionan el patrón de jamming **emparejando el estado en tiempo real con las características de la librería**. Es el baseline canónico del TFM.
+2. **Razonamiento probabilístico:** inferencia tipo **redes bayesianas** para decidir en escenarios concretos.
+3. **Optimización heurística:** metaheurísticas (**búsqueda tabú, colonias de hormigas**) para explorar estrategias de jamming.
+
+A nivel de *técnica* de contramedida, el repertorio clásico incluye **noise preset, repeater/DRFM, deception, chaff, señuelos (decoys) y maniobras evasivas** (EMSOPEDIA, *Cognitive EW*).
+
+### 5.2 Por qué fallan (justificación del proyecto)
+
+La GE cognitiva documenta tres debilidades estructurales del baseline: (i) dependen de una **taxonomía de formas de onda definida explícitamente** que se rompe ante radares multifunción sin periodicidad de pulso; (ii) seleccionan contramedidas por *lookup* contra **amenazas conocidas**, fallando ante "zero-day"; (iii) cubren "un rango limitado de eventos esperados" y no se adaptan a comportamiento novel ni a radares digitales programables con gran agilidad de RF (EMSOPEDIA, *Cognitive EW*). Estas tres debilidades **son exactamente el argumento que justifica los modelos 1-4**.
+
+### 5.3 Ancla cuantitativa y diseño para el TFM
+
+Hay un dato directamente reutilizable: en el escenario de MA-CJD (art. 07), la **política rule-based** quedó muy por detrás del agente cognitivo — **70,18 s de lock vs. 37,91 s (−45,98 %)** y mayor consumo de potencia. Sirve de referencia del orden de magnitud de mejora esperable.
+
+Recomendaciones:
+- Implementar un **selector determinista amenaza→contramedida** que reproduzca la doctrina clásica (familias 1-3 arriba), con una librería de reglas explícita y versionada.
+- Usarlo como **fila de referencia** en todas las tablas comparativas: el objetivo >92 % de victorias se mide *contra* este baseline.
+- **Cuantificar el delta** (win rate, J/S, burnthrough) modelo cognitivo − baseline, con significancia estadística; evitar afirmaciones cualitativas.
 
 ---
 

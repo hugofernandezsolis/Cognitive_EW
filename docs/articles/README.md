@@ -14,7 +14,7 @@ Descargados el 2026-06-14. Numeración alineada con la sección 8 (Referencias) 
 | `05_QMIX_swarm_antijam_arXiv2512.16813.pdf` | 3 | Coordinated Anti-Jamming Resilience in Swarm Networks via MARL (QMIX) | arXiv 2512.16813 |
 | `06_attribute_RNN_emitter_arXiv1911.07683.pdf` | 2 | Radar Emitter Classification with Attribute-specific RNNs | arXiv 1911.07683 |
 | `07_MA-CJD_cooperative_jamming_AIS2025.pdf` | 3 | MA-CJD: cooperative jamming decision-making (QMIX + MP-DQN + Double DQN) — leído completo | Autonomous Intelligent Systems 5:3, SpringerOpen |
-| `16_ECM_no_threat_db_US11808882.pdf` | 5 | Radar electronic countermeasures without a threat database (patente) | USPTO US 11808882 |
+| `16_ECM_no_threat_db_US11808882.pdf` | 5 | Radar electronic countermeasures without a threat database (patente — PDF escaneado, sin capa de texto) | USPTO US 11808882 |
 
 ## No descargables automáticamente (paywall / Cloudflare)
 
