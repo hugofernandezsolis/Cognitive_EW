@@ -76,3 +76,11 @@ class TemporalCNN(nn.Module):
             h = block(h)
         feat = self.pool(h).squeeze(-1)
         return self.head_type(feat), self.head_mode(feat)
+
+    @torch.no_grad()
+    def predict(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        type_logits, mode_logits = self.forward(x)
+        type_pred = type_logits.argmax(dim=-1)
+        mode_pred = mode_logits.argmax(dim=-1)
+        threat_pred: torch.Tensor = self.threat_from_mode[mode_pred]
+        return type_pred, mode_pred, threat_pred

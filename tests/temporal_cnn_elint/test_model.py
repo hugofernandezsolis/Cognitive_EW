@@ -1,5 +1,6 @@
 import torch
 
+from cog_ew.data.pdw_library import mode_to_threat
 from cog_ew.temporal_cnn_elint.model import TemporalCNN, TemporalCNNConfig
 
 
@@ -29,3 +30,26 @@ def test_param_count_is_lightweight():
     model = TemporalCNN(TemporalCNNConfig())
     n_params = sum(p.numel() for p in model.parameters())
     assert 50_000 < n_params < 300_000
+
+
+def test_predict_shapes_and_dtypes():
+    model = TemporalCNN(TemporalCNNConfig())
+    x = torch.randn(5, 10, 64)
+
+    type_pred, mode_pred, threat_pred = model.predict(x)
+
+    assert type_pred.shape == (5,)
+    assert mode_pred.shape == (5,)
+    assert threat_pred.shape == (5,)
+
+
+def test_predict_threat_is_consistent_with_mode():
+    model = TemporalCNN(TemporalCNNConfig())
+    x = torch.randn(16, 10, 64)
+
+    _, mode_pred, threat_pred = model.predict(x)
+
+    from cog_ew.data.pdw_library import MODES
+
+    expected = torch.tensor([mode_to_threat(MODES[m]) for m in mode_pred.tolist()])
+    assert torch.equal(threat_pred.cpu(), expected)
