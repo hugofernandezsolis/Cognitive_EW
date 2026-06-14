@@ -99,10 +99,15 @@ Un giro metodológico relevante: codificar la secuencia PDW como **imagen** y ap
 - **Dato clave para el TFM (latencia):** inferencia reportada de **0,015 s/muestra en una GTX 1060** (≈15 ms) para la red de parámetro único, y 0,046 s para la multi-stream. Es decir, **el objetivo <1 ms del TFM exige diseño/optimización deliberados** (red ligera, batching, hardware fijo) — un objetivo de contribución, no algo gratuito.
 - **Limitaciones declaradas:** escalado manual de frecuencias por memoria; entrenamiento de hasta 24 h para señales crudas; sin comparación empírica con baselines de DL modernos; validación solo con señales sintéticas de simulador propio.
 
-### 2.3 Caso de estudio B — RNN específicas por atributo
-*(abstract: arXiv 1911.07683)*
+### 2.3 Caso de estudio B (deep dive) — LSTM específicas por atributo
+*(lectura completa del PDF: arXiv 1911.07683 — artículo 06)*
 
-Propone **procesamiento RNN específico por atributo**: cada característica del pulso se procesa por una ruta RNN dedicada que modela las dependencias temporales del tren de pulsos, con una técnica novedosa de **normalización por secuencia** para resaltar patrones temporales útiles. Incluye un estudio comparativo de **robustez** frente a enfoques de DL previos. *El abstract no aporta dataset, número de clases ni accuracies concretas* — conviene leer el cuerpo del artículo antes de usarlo como baseline cuantitativo.
+- **Idea central:** en lugar de procesar conjuntamente todos los atributos del pulso, dedica **una pila de LSTM por atributo** y concatena sus salidas. Motivación: cada parámetro PDW (PRI, RF, PW, amplitud…) tiene dinámica temporal propia y mezclarlos diluye la señal discriminante.
+- **Entrada y normalización:** secuencias de pulsos construidas desde PDWs (M atributos por pulso). Propone una **normalización por secuencia** que concatena z-score y min-max → `2·M` canales, resaltando patrones temporales útiles con independencia de la escala absoluta.
+- **Arquitectura:** `2·M` capas LSTM apiladas (una rama por atributo), concatenadas a lo largo del *hidden size*, seguidas de capa FC + softmax sobre `C` clases. **Dropout 0,5** entre LSTMs y antes de la FC.
+- **Dataset:** **60.910 muestras de entrenamiento / 17.382 de test, 17 clases de emisores** (aéreos/terrestres), secuencias de **longitud variable** y **clases desbalanceadas** → se evalúa con **accuracy macro-promediada** (penaliza ignorar clases minoritarias).
+- **Resultados (relativos):** las LSTM específicas por atributo superan al RNN conjunto en **2–14 %**; frente a baselines de DL (MLP de Petrov et al., CNN/ResNet18 para series temporales) la mejora es del **2–19 %**, batiendo a **ResNet18 por 14–15 %**. En **robustez a ruido gaussiano** (hasta 10 % de magnitud ≈ SNR 20 dB, umbral típico de sistemas EW) mantiene ventaja creciente: de +2 % sin ruido a +6 % a SNR 20 dB sobre Petrov et al.
+- **Lectura para el TFM:** confirma que **separar el procesamiento por atributo** y normalizar por secuencia es una palanca de precisión barata, y que la métrica correcta con clases desbalanceadas es la **macro-accuracy** (no la global).
 
 ### 2.4 Dataset destacado (nuevo)
 **The Turing Synthetic Radar Dataset** (Gunn et al., 2026): dataset simulado a gran escala para *pulse deinterleaving* con **métricas estandarizadas (V-measure)** para identificación/clustering de emisores. Es una oportunidad de benchmark reproducible muy poco explotado. (HF: https://hf.co/papers/2602.03856)
@@ -256,4 +261,4 @@ No es un frente de ML, sino el **baseline rule-based** contra el que se mide la 
 16. *Radar electronic countermeasures without a threat database* — patente US 11808882. https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/11808882
 17. *Jammer Versus Radar in a Cognitive Electronic Warfare Setting* — preprint TechRxiv, 2025/26. https://www.techrxiv.org/doi/pdf/10.36227/techrxiv.176537934.47026414
 
-> **Aviso de fiabilidad.** Algunas fechas de publicación (2026) y enlaces de ResearchGate/paywall provienen de extracción automática y deben confirmarse en la fuente original antes de la bibliografía final del TFM. Las cifras de los casos de estudio 1.2, 1.3, 2.2, 3.2, 3.3 y 4.2 provienen de **lectura completa** del artículo; las del caso 2.3 provienen solo del abstract.
+> **Aviso de fiabilidad.** Algunas fechas de publicación (2026) y enlaces de ResearchGate/paywall provienen de extracción automática y deben confirmarse en la fuente original antes de la bibliografía final del TFM. Las cifras de **todos** los casos de estudio en profundidad (1.2, 1.3, 2.2, 2.3, 3.2, 3.3, 4.2) provienen de **lectura completa** del artículo (PDFs en `../articles/`).
