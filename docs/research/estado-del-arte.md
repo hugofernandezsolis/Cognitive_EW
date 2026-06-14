@@ -1,0 +1,209 @@
+# Estado del arte — Guerra Electrónica Cognitiva (guía detallada por modelo)
+
+**Proyecto:** Cognitive Electronic Warfare System (TFM)
+**Fecha de la revisión:** 2026-06-14
+**Objetivo de publicación:** revista Q1 (IEEE TNNLS, Knowledge-Based Systems, Information Sciences, Expert Systems with Applications)
+
+> **Método.** Esta guía se basa en lectura en profundidad de artículos de acceso abierto (PubMed Central, arXiv) y en abstracts/snippets verificados de fuentes tras paywall (Springer, ScienceDirect, MDPI). Cada caso de estudio indica su nivel de detalle (lectura completa vs. abstract) y, cuando una fuente devolvió contenido posiblemente inferido, se señala explícitamente. **Antes de citar formalmente en el TFM, re-verificar cada referencia en su fuente original** (las cifras provienen de la extracción automática del texto).
+
+---
+
+## 0. Marco conceptual: ¿qué es la GE cognitiva?
+
+La guerra electrónica cognitiva (Cognitive EW) sustituye el paradigma clásico de **librería de amenazas** por un bucle cerrado **sentir → orientar → decidir → actuar → aprender** ejecutado a velocidad de máquina. El sistema observa el entorno electromagnético, identifica amenazas, sintetiza o selecciona contramedidas y, de forma crucial, **incorpora la experiencia acumulada** a decisiones futuras de manera autónoma (EMSOPEDIA, *Cognitive EW*).
+
+El argumento que motiva todo el proyecto está bien establecido en la literatura: los sistemas de ataque electrónico convencionales dependen de una **taxonomía de formas de onda definida explícitamente** y de una **librería de identificación** preparada en planificación de misión, que selecciona contramedidas por *lookup* contra amenazas conocidas. Estos sistemas (i) no comprenden la *intención* de una señal novedosa, (ii) fallan ante amenazas "zero-day", y (iii) son insuficientes contra radares multifunción modernos con gran agilidad de RF y sin periodicidad de pulso estable. La GE cognitiva embebe ML en el núcleo del bucle para clasificar señales, detectar comportamiento anómalo y **sintetizar jamming optimizado dinámicamente** en lugar de seleccionarlo de una tabla fija (EMSOPEDIA, *Cognitive EW*).
+
+Una tensión recurrente y directamente relevante para el TFM: la GE "reacciona en tiempo real o cuasi-tiempo real" y debe decidir "en fracciones diminutas de segundo", pero la literatura **rara vez reporta latencias de inferencia medidas**. Esto convierte la latencia documentada (<5 ms jamming, <1 ms ELINT, con media + p99 en hardware fijo) en una contribución diferenciadora.
+
+---
+
+## 1. Deep RL para jamming adaptativo
+
+### 1.1 Planteamiento del campo
+
+El problema se formula casi universalmente como un **proceso de decisión de Markov (MDP)** o, cuando el estado interno del adversario no es observable, un **POMDP**. El agente (jammer o radar cognitivo) observa una representación del entorno espectral, elige una acción (forma de onda, banda, potencia, técnica) y recibe una recompensa ligada a una métrica de efectividad (SJNR, tasa de error de símbolo, probabilidad de detección). El reto central es **aprender con pocas interacciones** en un entorno no estacionario y adversarial, donde el oponente también adapta su comportamiento.
+
+Tres familias técnicas dominan:
+
+- **Value-based (DQN y variantes):** Double-DQN y *Dueling* Double-DQN (D3QN) con *experience replay* priorizado y *fixed Q-targets*. Apropiadas para espacios de acción discretos moderados.
+- **Maximum-entropy / actor-critic (SAC, PPO):** mejor exploración y estabilidad; necesarias cuando el espacio de acción crece o es continuo.
+- **Híbridos teoría de juegos + RL:** tendencia ascendente 2024-25 para manejar incertidumbre de tipo de radar y comportamiento estocástico que el RL puro maneja peor.
+
+Un problema práctico transversal es el **crecimiento del espacio de acción**: combinar modulación × potencia × frecuencia × técnica genera miles de acciones, y los algoritmos value-based dejan de converger. Las soluciones recientes adaptan arquitecturas de *embedding* de acciones (Wolpertinger) para escalar.
+
+### 1.2 Caso de estudio A — Jamming inteligente con Improved-SAC + Wolpertinger
+*(lectura completa: Sensors / PMC9601320)*
+
+- **Problema:** un jammer aprende a interrumpir un enlace de comunicaciones cuyas partes adaptan modulación, potencia y frecuencia (estrategia anti-jamming fija: subir potencia → cambiar frecuencia → cambiar modulación). Escenario no cooperativo, pocas interacciones.
+- **Formulación MDP:** el estado combina los parámetros de comunicación observados con la acción de jamming previa (`Sₜ = Sₜ* + aₜ`). La acción es un vector discreto de modulación/potencia/frecuencia. La recompensa es a trozos: premia SER ≥ umbral, bonifica alineación en frecuencia y penaliza consumo de potencia excesivo.
+- **Algoritmo y arquitectura:** **Soft Actor-Critic** con una **arquitectura Wolpertinger mejorada** que discretiza la salida continua de SAC vía K-NN y expande el conjunto de proto-acciones con combinaciones de frecuencia. Red de política con 4 capas ocultas (128→256→512→128) y cuatro Q-networks idénticas, ReLU.
+- **Entrenamiento:** replay de 10⁶ muestras; LR actor/critic = 0,0015; γ = 0,1 (prioriza convergencia inmediata); τ = 0,005; batch 100; coeficiente de entropía dinámico decreciente; canal AWGN a SNR 20 dB. Co-simulación MATLAB↔Python.
+- **Resultados:** con 150 acciones, Improved-SAC alcanza 90 % de acierto en la ronda 29 y ~93,85 % de media (vs. 83,26 % de SAC base). Con 600 acciones: 91,95 % vs. 85,34 %. Con 1.200 acciones: 87,83 % de media mientras **Q-learning y DQN no convergen**. Demuestra escalabilidad a espacios de acción grandes.
+- **Limitaciones declaradas:** la librería de acciones de jamming es aún pequeña para complejidad real; no modela ocupación de canal; la recompensa basada en SER se reconoce subóptima.
+
+### 1.3 Caso de estudio B — Diseño de forma de onda anti-jamming con D3QN
+*(lectura completa: Sensors / PMC9692253)*
+
+Aunque es la **perspectiva del radar** (anti-jamming), ilustra con detalle la formulación RL que el modelo 1 del TFM usará en espejo (jammer vs. radar).
+
+- **Problema:** radar aerotransportado de banda X (9,5 GHz, 100 MHz de ancho) diseña en tiempo real su forma de onda transmitida para maximizar SJNR ante jamming de lóbulo principal, clutter no gaussiano y ruido.
+- **Formulación MDP:** estado = distribución de potencia del jammer en 5 sub-bandas × 6 niveles → 6⁵ = 7.776 estados; acción = forma de onda del radar con la misma discretización (7.776 acciones); recompensa ∝ SJNR; γ = 0,9.
+- **Algoritmo:** **Dueling Double DQN (D3QN)** con *fixed Q-targets* y *prioritized experience replay* (prioridad pᵢ = |δᵢ| + ε).
+- **Resultados:** a Ps = 5 W, Pⱼ = 10 W, D3QN logra **15,8 dB de SJNR** (vs. 13,7 dB de *policy iteration* y 12,8 dB de LFM convencional) y **97 % de probabilidad de detección** (vs. 70 % y 53 %). A Pⱼ = 30 W: 99,84 % vs. 92,27 % vs. 83,95 %.
+- **Limitaciones declaradas:** espacio discreto (se sugiere formulación continua); recompensa monolítica (solo SJNR); modelo de jammer idealizado (observabilidad perfecta, sin retardos); validación solo en simulación con parámetros sintéticos fijos; **no se reporta tiempo de convergencia ni latencia de inferencia**; escenarios multi-jammer no explorados.
+
+### 1.4 Hueco / oportunidad para el TFM (modelo 1)
+- **Latencia <5 ms** documentada (media + p99) en hardware fijo — prácticamente ausente en la literatura.
+- **Espacio de acción discreto-compuesto** con técnicas EW reales (noise, DRFM, cross-eye, VGPO, RGPO) y adaptación a cambios de waveform/ECCM, frente a los espacios "potencia × frecuencia" abstractos habituales.
+- Manejo explícito de **observabilidad parcial** (POMDP con historial), donde muchos trabajos asumen observación perfecta.
+
+---
+
+## 2. Temporal CNN para clasificación ELINT
+
+### 2.1 Planteamiento del campo
+
+La entrada son secuencias de **PDW** (Pulse Descriptor Words): PRI (intervalo de repetición), PW/PD (ancho de pulso), RF (frecuencia), amplitud y periodo de barrido de antena. Tres familias compiten:
+
+- **CNN 1D (con o sin atención):** extractor automático de características sobre parámetros o muestras crudas; baseline robusto y ligero.
+- **Recurrentes (RNN/LSTM, CBRNN):** modelan dependencias temporales del tren de pulsos; útiles cuando el patrón inter-pulso es discriminante.
+- **Transformer + GCN:** lo más reciente — atención para la dimensión temporal y grafos para las relaciones estructurales entre parámetros.
+
+Un giro metodológico relevante: codificar la secuencia PDW como **imagen** y aplicar **segmentación (U-Net)** para resolver *deinterleaving* (separar pulsos entremezclados de varios emisores) y reconocimiento conjuntamente. La motivación recurrente es que los radares ágiles modernos hacen que "PDW + PRI por sí solos sean insuficientes".
+
+### 2.2 Caso de estudio A — CNN multi-stream para 18 clases de radar
+*(lectura completa: Sensors / PMC8707803)*
+
+- **Problema:** identificación de emisor específico entre **18 clases** de radar con rangos de parámetros **fuertemente solapados** (de ahí la necesidad de análisis multi-parámetro).
+- **Entrada:** cuatro parámetros (PRI ms, PD µs, RF GHz, SP s) y, alternativamente, formas de onda crudas (hasta 335.544 muestras). Tres estrategias: parámetros post-detección, formas de onda crudas, y combinación multi-stream.
+- **Arquitectura:** redes 1D-CNN de 17 capas (bloques Conv1D + BatchNorm + MaxPool con filtros 5→9→6, kernels 5/3/2), Dense + Dropout + Softmax. La variante **multi-stream** concatena tres redes paralelas (PRI, PD, TW). Optimizador Adam, LR = 5×10⁻⁵.
+- **Resultados:** parámetro único rinde mal (PD: 5,6–16,7 %; PRI: hasta 78 %; TW: hasta 72 %). La red **multi-stream concatenada alcanza 72,2–100 %** (mejor caso 100 %, típico 90–99 %). Robustez a ruido aditivo alta (99,7–100 % hasta nivel 0,5), pero degrada ante interferencia señal-a-señal (de 99,1 % a 44,6 % entre niveles 0,1 y 0,9).
+- **Dato clave para el TFM (latencia):** inferencia reportada de **0,015 s/muestra en una GTX 1060** (≈15 ms) para la red de parámetro único, y 0,046 s para la multi-stream. Es decir, **el objetivo <1 ms del TFM exige diseño/optimización deliberados** (red ligera, batching, hardware fijo) — un objetivo de contribución, no algo gratuito.
+- **Limitaciones declaradas:** escalado manual de frecuencias por memoria; entrenamiento de hasta 24 h para señales crudas; sin comparación empírica con baselines de DL modernos; validación solo con señales sintéticas de simulador propio.
+
+### 2.3 Caso de estudio B — RNN específicas por atributo
+*(abstract: arXiv 1911.07683)*
+
+Propone **procesamiento RNN específico por atributo**: cada característica del pulso se procesa por una ruta RNN dedicada que modela las dependencias temporales del tren de pulsos, con una técnica novedosa de **normalización por secuencia** para resaltar patrones temporales útiles. Incluye un estudio comparativo de **robustez** frente a enfoques de DL previos. *El abstract no aporta dataset, número de clases ni accuracies concretas* — conviene leer el cuerpo del artículo antes de usarlo como baseline cuantitativo.
+
+### 2.4 Dataset destacado (nuevo)
+**The Turing Synthetic Radar Dataset** (Gunn et al., 2026): dataset simulado a gran escala para *pulse deinterleaving* con **métricas estandarizadas (V-measure)** para identificación/clustering de emisores. Es una oportunidad de benchmark reproducible muy poco explotado. (HF: https://hf.co/papers/2602.03856)
+
+### 2.5 Hueco / oportunidad para el TFM (modelo 2)
+- Reportar **latencia <1 ms** (media + p99) en hardware fijo — los trabajos publican accuracy pero no tiempos (y el caso 2.2 sugiere ~15 ms de partida).
+- **Robustez bajo SNR variable y PDW corrompidos/perdidos** evaluada sistemáticamente.
+- Benchmark sobre el dataset Turing para reproducibilidad.
+
+---
+
+## 3. Multi-Agent RL para coordinación en formación
+
+### 3.1 Planteamiento del campo
+
+El problema se modela como **juego de Markov / Dec-POMDP**: varios agentes EW (aeronaves o jammers) con observación local deben coordinar emisiones para un objetivo común (suprimir un IADS, mantener comunicaciones). El esquema dominante es **CTDE** (*Centralized Training, Decentralized Execution*): se entrena con información global pero cada agente ejecuta solo con su observación local.
+
+El algoritmo de referencia es **QMIX**, que aprende una función de valor de acción **centralizada pero factorizable** (mezcla monótona de los valores individuales), resolviendo el problema de asignación de crédito entre agentes. Líneas activas 2024-25: **MARL jerárquico** contra agilidad/diversidad de frecuencia, **asignación cooperativa de recursos de jamming** y control de enjambres UAV bajo EW.
+
+### 3.2 Caso de estudio A — MA-CJD: decisión de jamming cooperativo
+*(abstract/snippet verificado: Springer AIS, 2025, s43684-025-00090-4)*
+
+Modela la **decisión de jamming cooperativo como juego de Markov** y aplica **QMIX** para la cooperación entre jammers. Para manejar el **espacio de acción parametrizado** (técnica discreta + parámetros continuos) adopta la estructura **MP-DQN**, formando el algoritmo **MA-CJD**. Resultados: reduce significativamente el tiempo durante el cual las unidades a proteger son detectadas, **minimizando a la vez el consumo de recursos de jamming**, y supera a algoritmos previos en escenarios cooperativos. *(Es la plantilla más cercana al modelo 3; conviene obtener el PDF completo para arquitectura e hiperparámetros.)*
+
+### 3.3 Caso de estudio B — QMIX para resiliencia anti-jamming en enjambres
+*(extracción honesta del abstract: arXiv 2512.16813)*
+
+- **Problema:** proteger redes de enjambre robótico frente a *reactive jammers* que interrumpen selectivamente las comunicaciones inter-agente.
+- **Formulación:** cada agente **selecciona conjuntamente frecuencia (canal) y potencia**; QMIX aprende una función de valor centralizada pero factorizable que permite **ejecución descentralizada coordinada** (CTDE confirmado). *La recompensa exacta no se explicita en el abstract.*
+- **Baselines:** política óptima "genie-aided", UCB local, política reactiva sin estado.
+- **Resultados:** QMIX **converge rápido a políticas cooperativas que casi igualan la cota genie-aided** y logra mayor throughput y menor incidencia de jamming que los baselines. *(Detalles de la mixing network y límites no constan en el abstract.)*
+
+> Nota de confianza: una fuente tipo *survey* (arXiv 2508.11687) devolvió tablas de métricas con apariencia inferida por el extractor; **no se citan esas cifras** aquí por falta de fiabilidad.
+
+### 3.4 Hueco / oportunidad para el TFM (modelo 3)
+La mayoría de trabajos trata **asignación de recursos abstracta** (frecuencia/potencia). Más operacional y diferenciable: **un agente por aeronave** que coordina *deception* + gestión de potencia para **supresión de IADS**, evaluado con **métricas EW reales** (J/S ratio, burnthrough range) en un escenario tipo NTTR, en lugar de throughput de comunicaciones.
+
+---
+
+## 4. GAN para señales sintéticas
+
+### 4.1 Planteamiento del campo
+
+Dos usos: (i) **data augmentation** para clasificación de modulación cuando las muestras reales escasean (especialmente señales **LPI**, escasas por diseño), y (ii) **diseño generativo de formas de onda** con propiedades deseadas (baja probabilidad de detección/interceptación). Los enfoques ganadores son **cGAN** y **Wasserstein DCGAN con atención** para *small-sample*. Tendencia emergente 2025-26: **híbridos físico + generativo** (p. ej. SA-Radar) y **modelos de difusión** desplazando a la GAN pura en algunas tareas radar.
+
+### 4.2 Caso de estudio — cWGAN-GP para formas de onda radar LPD
+*(lectura completa: arXiv 2403.12254)*
+
+Es especialmente relevante porque **usa el mismo dataset RadioML 2018.01A** de la capa de datos del proyecto, como distribución de fondo RF.
+
+- **Problema:** diseñar formas de onda que sean simultáneamente difíciles de detectar (LPD) y buenas sensando (función de ambigüedad tipo "thumbtack"). Optimización multiobjetivo: minimizar la **divergencia KL** entre la distribución de la forma de onda generada y el fondo RF ambiente, manteniendo el lóbulo principal estrecho y los lóbulos laterales suprimidos.
+- **Arquitectura:** **Conditional Wasserstein GAN con Gradient Penalty (cWGAN-GP)**. Generador 1D-ResNeXt (12,2 M parámetros) que toma ruido `z` + vector condicional `y` (muestra instantánea del fondo RF) y produce una **forma de onda IQ compleja de 1024 muestras** (salida `2·tanh(x/2)`). Crítico simétrico (11,7 M parámetros) con *layer normalization* (compatible con gradient penalty). Pérdida Wasserstein-1 + penalización de gradiente (λ) + pérdida de ambigüedad (lóbulo principal y laterales) en *fine-tuning*.
+- **Entrenamiento:** fase 1 solo WGAN-GP hasta converger; fase 2, 3.000 iteraciones con `L_W + η·L_ambig`. Adam (gen, LR 1×10⁻⁵), RMSProp (crítico, LR 5×10⁻⁵), batch 512 en 2× V100, 5 iteraciones de crítico por 1 de generador. Fondo RF: **RadioML 2018.01A** (24 modulaciones, –20..+30 dB), con 50 % para entrenar el generador y 50 % el detector (sin solape).
+- **Resultados:** con igual número de muestras, las formas de onda generadas se detectan solo al **19,5 % ± 5,5 % a 1 % de FAR** frente a 95–99 % de las formas base (**~90 % menos detectabilidad**). Con 10× y 100× más datos de entrenamiento, el detector sube a 70 % y 80,8 % (la dificultad persiste). Rendimiento de sensado (ancho de lóbulo principal, PSL, ambigüedad Doppler) ajustable vía η, con compromiso explícito LPD↔sensado.
+- **Limitaciones declaradas:** ancho de pulso fijo; dependencia del fondo (peor sensado cuando se condiciona en AM/FM); degradación ante interferencia a 0 dB; coste de entrenamiento (≈24 M parámetros, 2× V100); latencia de inferencia no reportada.
+
+### 4.3 Hueco / oportunidad para el TFM (modelo 4)
+Posicionar la GAN **no como fin sino como augmentation con impacto medible**: ablation con/sin datos sintéticos sobre los modelos 1-2, reportando la mejora en accuracy/robustez. Mencionar **difusión** como alternativa (dirección 2025-26). El precedente cWGAN-GP sobre RadioML da una plantilla de arquitectura y de protocolo de evaluación directamente reutilizable.
+
+---
+
+## 5. Librería EW convencional (baseline)
+
+### 5.1 Rol
+
+No es un frente de ML, sino el **baseline rule-based** contra el que se mide la mejora de los modelos 1-4. La literatura de GE cognitiva confirma y justifica su uso como suelo de rendimiento: los sistemas ECM tradicionales (noise preset, repeater, deception, chaff, decoys, maniobras evasivas) dependen de **librería de amenazas pre-cargada** y **fallan ante amenazas "zero-day"** y radares digitales programables con waveforms flexibles (EMSOPEDIA, *Cognitive EW*; patente US 11808882 sobre ECM sin base de datos de amenazas).
+
+### 5.2 Diseño recomendado para el TFM
+- Implementar un selector determinista amenaza→contramedida que reproduzca la doctrina clásica.
+- Usarlo como **fila de referencia** en todas las tablas comparativas: el objetivo >92 % de victorias se mide *contra* este baseline, y la mejora de los modelos RL/CNN debe ser estadísticamente significativa.
+- Evita afirmaciones cualitativas: cuantifica el delta (win rate, J/S, burnthrough) modelo cognitivo − baseline.
+
+---
+
+## 6. Síntesis transversal y posicionamiento Q1
+
+1. **El diferenciador no es un modelo, es la integración.** La literatura trata casi siempre un modelo aislado (un DRL de jamming, una CNN de clasificación, un QMIX de coordinación). El valor del TFM está en el **sistema completo** (5 modelos) sobre escenario NTTR (PBECR/TPECR) con métricas EW de dominio (J/S, burnthrough, POI, false alarm rate).
+2. **La latencia es una contribución medible y casi inédita.** Ninguno de los casos de estudio leídos reporta latencia de inferencia; el caso 2.2 sugiere ~15 ms de partida para una CNN en GTX 1060. Medir **media + p99 en hardware fijo** (L4/T4 + CPU, no en la GPU más rápida) y alcanzar <5 ms / <1 ms es un resultado publicable por sí mismo.
+3. **Reproducibilidad como ventaja.** El campo EW es opaco por su naturaleza clasificada; un pipeline reproducible (RadioML 2018.01A + dataset Turing + configs versionadas + seeds) es escaso y valioso para revisores.
+4. **Coherencia de datos entre modelos.** RadioML 2018.01A es a la vez base de clasificación (modelo 2), fondo RF para la GAN (modelo 4, como en el caso 4.2) y fuente de modulaciones para el entorno RL — refuerza la narrativa de "capa de datos compartida".
+5. **Encaje de revistas:** ESWA y Knowledge-Based Systems ya publican *deinterleaving* y *jamming DRL* (encaje directo); IEEE TNNLS si el ángulo es metodológico (POMDP/MARL); Information Sciences para el componente generativo/datos.
+
+---
+
+## 7. Datasets y benchmarks
+
+| Dataset | Modelo(s) | Uso | Enlace |
+|---------|-----------|-----|--------|
+| RadioML 2018.01A | 2, 4, (1) | Clasificación de modulación IQ a distintos SNR; fondo RF para GAN | Capa de datos del proyecto |
+| The Turing Synthetic Radar Dataset (2026) | 2 | Deinterleaving / identificación de emisores; métrica V-measure | https://hf.co/papers/2602.03856 |
+| SIDLE (radar) | 4 | Formas de onda radar base para comparación de detectabilidad | Citado en arXiv 2403.12254 |
+| SA-Radar (sim. controlable) | 4 | Generación de datos radar realistas por parámetros | https://hf.co/papers/2506.03134 |
+
+---
+
+## 8. Referencias
+
+**Acceso abierto leído en profundidad:**
+1. *Deep Reinforcement Learning Based Decision Making for Complex Jamming Waveforms* — Sensors (PMC9601320). https://pmc.ncbi.nlm.nih.gov/articles/PMC9601320/
+2. *Airborne Radar Anti-Jamming Waveform Design Based on Deep Reinforcement Learning* — Sensors (PMC9692253). https://pmc.ncbi.nlm.nih.gov/articles/PMC9692253/
+3. *Specific Radar Recognition Based on Characteristics of Emitted Radio Waveforms Using CNNs* — Sensors (PMC8707803). https://pmc.ncbi.nlm.nih.gov/articles/PMC8707803/
+4. *Adaptive LPD Radar Waveform Design with Generative Deep Learning* — arXiv 2403.12254. https://arxiv.org/html/2403.12254
+5. *Coordinated Anti-Jamming Resilience in Swarm Networks via Multi-Agent RL* — arXiv 2512.16813. https://arxiv.org/abs/2512.16813
+
+**Abstract / snippet verificado (re-verificar cuerpo antes de citar cifras):**
+6. *Radar Emitter Classification with Attribute-specific RNNs* — arXiv 1911.07683. https://arxiv.org/abs/1911.07683
+7. *A cooperative jamming decision-making method based on MARL (MA-CJD, QMIX + MP-DQN)* — Autonomous Intelligent Systems, Springer 2025. https://link.springer.com/article/10.1007/s43684-025-00090-4
+8. *Improving anti-jamming decision-making for cognitive radar via MARL* — Signal Processing, 2023. https://www.sciencedirect.com/science/article/abs/pii/S1051200423000477
+9. *Frequency Diversity Array Radar and Jammer Frequency-Domain Power Countermeasures via MARL* — Remote Sensing 16(11):2127, 2024. https://doi.org/10.3390/rs16122127
+10. *Hybrid Game-Theoretic and Reinforcement Learning for Adaptive Radar Jamming Decision-Making* — 2025. https://www.researchgate.net/publication/397230778
+11. *Radar Jamming Decision-Making in Cognitive EW: A Review* — 2023. https://www.researchgate.net/publication/370167521
+12. *A framework for radar signal deinterleaving and parameter estimation (split-pulse, deep learning)* — Expert Systems with Applications, 2025. https://www.sciencedirect.com/science/article/abs/pii/S0957417425010280
+13. *Data augmentation with conditional GAN for automatic modulation classification* — ACM WiseML. https://dl.acm.org/doi/10.1145/3395352.3402622
+14. *WDCGAN-GSMR: small-sample radar signal modulation recognition* — Signal Processing, 2026. https://www.sciencedirect.com/science/article/abs/pii/S1051200426000916
+
+**Dominio / framing:**
+15. *Cognitive EW* — EMSOPEDIA. https://www.emsopedia.org/entries/cognitive-ew/
+16. *Radar electronic countermeasures without a threat database* — patente US 11808882. https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/11808882
+17. *Jammer Versus Radar in a Cognitive Electronic Warfare Setting* — preprint TechRxiv, 2025/26. https://www.techrxiv.org/doi/pdf/10.36227/techrxiv.176537934.47026414
+
+> **Aviso de fiabilidad.** Algunas fechas de publicación (2026) y enlaces de ResearchGate/paywall provienen de extracción automática y deben confirmarse en la fuente original antes de la bibliografía final del TFM. Las cifras de los casos de estudio 1.2, 1.3, 2.2 y 4.2 provienen de lectura completa del artículo; las de los casos 2.3, 3.2 y 3.3 provienen solo del abstract.
