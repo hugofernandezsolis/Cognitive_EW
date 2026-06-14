@@ -181,6 +181,19 @@ def test_split_dataset_sizes(synthetic_h5):
     assert len(test) == 9
 
 
+def test_dataset_label_snr_x_alignment(synthetic_h5):
+    config = RadioMLConfig(
+        h5_path=str(synthetic_h5), kaggle_dataset=None, snr_range=(0, 4), normalize=False
+    )
+    dataset = RadioML2018Dataset(config)
+
+    # Primer ejemplo tras filtrar SNR>=0 es la fila original 4: X==5.0, label=0, snr=0
+    iq, label, snr = dataset[0]
+    assert float(iq[0, 0]) == pytest.approx(5.0)
+    assert label == 0
+    assert snr == 0
+
+
 def test_split_dataset_deterministic(synthetic_h5):
     config = RadioMLConfig(h5_path=str(synthetic_h5), kaggle_dataset=None, normalize=False)
     dataset = RadioML2018Dataset(config)
