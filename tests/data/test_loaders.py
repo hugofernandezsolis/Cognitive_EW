@@ -1,6 +1,7 @@
+import numpy as np
 import pytest
 
-from cog_ew.data.loaders import MODULATIONS_2018, RadioMLConfig, resolve_h5_path
+from cog_ew.data.loaders import MODULATIONS_2018, RadioMLConfig, _mask_to_runs, resolve_h5_path
 
 
 def test_modulations_count():
@@ -73,3 +74,21 @@ def test_resolve_h5_path_kaggle(tmp_path, monkeypatch):
     config = RadioMLConfig(h5_path=None)
 
     assert resolve_h5_path(config).name == "GOLD_XYZ_OSC.0001_1024x2M.h5"
+
+
+def test_mask_to_runs_basic():
+    mask = np.array([False, True, True, False, True])
+
+    assert _mask_to_runs(mask) == [(1, 3), (4, 5)]
+
+
+def test_mask_to_runs_empty():
+    mask = np.zeros(5, dtype=bool)
+
+    assert _mask_to_runs(mask) == []
+
+
+def test_mask_to_runs_all_true():
+    mask = np.ones(3, dtype=bool)
+
+    assert _mask_to_runs(mask) == [(0, 3)]
