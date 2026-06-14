@@ -1,30 +1,12 @@
 # Cognitive Electronic Warfare System — CLAUDE.md
 
-## Contexto del proyecto
+## Idea base del proyecto
 
-TFM sobre **Guerra Electrónica Cognitiva** validada en el entorno NTTR (Nevada Test and Training Range), con los ranges PBECR y TPECR. El objetivo es publicar en revista Q1 (IEEE TNNLS, Knowledge-Based Systems, Information Sciences, Expert Systems with Applications).
+> **Fuente de verdad:** la idea base a implementar está en **[`Propuesta.md`](Propuesta.md)** — contexto y relevancia (GE cognitiva en el NTTR), los 5 modelos/técnicas, el dataset/benchmark, las revistas Q1 objetivo y la contribución innovadora. **Ese documento manda; los modelos deben alinearse con él.**
+>
+> ⚠️ **`Propuesta.md` NO debe modificarse bajo ningún concepto.** Es un documento de solo lectura: no editarlo, reescribirlo ni reformatearlo. Si surge una discrepancia, se adapta el código o este CLAUDE.md, nunca `Propuesta.md`.
 
-El sistema combate electrónico cognitivo basado en Deep RL que debe superar al adversario en >92% de enfrentamientos de espectro con latencias de respuesta <5ms.
-
-## Modelos a implementar
-
-| # | Modelo | Objetivo |
-|---|--------|----------|
-| 1 | **Deep RL** (jamming adaptativo) | Agente que genera en tiempo real la combinación óptima de técnicas de jamming (noise, DRFM, cross-eye, VGPO, RGPO) adaptándose a cambios de waveform y ECCM adversario. Latencia <5ms. |
-| 2 | **Temporal CNN** (ELINT/clasificación) | Clasifica en tiempo real el tipo de emisor (SA-20, S-400, radar AESA, etc.), modo de operación y estado de amenaza desde secuencias de pulsos RWR. Latencia <1ms. |
-| 3 | **Multi-Agent RL** (coordinación en formación) | MARL donde cada aeronave es un agente EW que coordina emisiones para maximizar supresión del IADS (distribución de tareas, gestión de potencia, deception coordinada). |
-| 4 | **GAN** (señales sintéticas) | Genera señales radar sintéticas realistas (radar cognitivo, LPI, banda ancha, pasivo) para data augmentation de los modelos de clasificación y jamming. |
-| 5 | **Librería EW convencional** (baseline) | Contramedidas pre-programadas por tipo de amenaza identificada. Referencia de comparación para demostrar mejora de los modelos RL/CNN. |
-
-## Datasets
-
-- **DeepSig RadioML** — clasificación RF con modulaciones reales a diferentes SNR
-- **DARPA SC2** (Spectrum Collaboration Challenge) — inteligencia espectral
-- **DARPA RFMLS** (RF Machine Learning Systems) — señales RF para ML
-- **GNU Radio Signal Data** — señales generadas/capturadas
-- **NTTR SIADS params** — parámetros publicados de simuladores SA-2 a S-400
-
-Los datasets no son cerrados; se pueden usar alternativas o datasets sintéticos generados por el modelo GAN del proyecto.
+Este CLAUDE.md cubre **el *cómo*** (stack, estructura, convenciones, reproducibilidad, calidad de código y flujo de trabajo), no el *qué*. Si algo de aquí contradice a `Propuesta.md`, gana `Propuesta.md`.
 
 ## Stack tecnológico
 
