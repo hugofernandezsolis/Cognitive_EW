@@ -8,6 +8,8 @@ def normalize_power(iq: NDArray[np.floating]) -> NDArray[np.float32]:
     iq = iq.astype(np.float32, copy=False)
     power: NDArray[np.float32] = np.mean(np.sum(iq**2, axis=-1), axis=-1)
     scale: NDArray[np.float32] = np.sqrt(power)
+    # Evita NaN en frames de potencia nula (capturas en silencio, GAN inestable)
+    scale = np.where(scale == 0.0, np.float32(1.0), scale)
     return (iq / scale[..., np.newaxis, np.newaxis]).astype(np.float32)
 
 

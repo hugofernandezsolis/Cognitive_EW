@@ -54,3 +54,12 @@ def test_iq_complex_roundtrip():
     out = complex_to_iq(iq_to_complex(iq))
 
     assert np.allclose(out, iq, atol=1e-6)
+
+
+def test_normalize_power_zero_input_no_nan():
+    iq = np.zeros((16, 2), dtype=np.float32)
+
+    out = normalize_power(iq)
+
+    assert not np.isnan(out).any()
+    assert np.all(out == 0.0)
