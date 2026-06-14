@@ -1,7 +1,14 @@
 import numpy as np
 import pytest
+import torch
 
-from cog_ew.data.loaders import MODULATIONS_2018, RadioMLConfig, _mask_to_runs, resolve_h5_path
+from cog_ew.data.loaders import (
+    MODULATIONS_2018,
+    RadioML2018Dataset,
+    RadioMLConfig,
+    _mask_to_runs,
+    resolve_h5_path,
+)
 
 
 def test_modulations_count():
@@ -92,3 +99,50 @@ def test_mask_to_runs_all_true():
     mask = np.ones(3, dtype=bool)
 
     assert _mask_to_runs(mask) == [(0, 3)]
+
+
+def test_dataset_loads_full(synthetic_h5):
+    config = RadioMLConfig(h5_path=str(synthetic_h5), kaggle_dataset=None, normalize=False)
+    dataset = RadioML2018Dataset(config)
+
+    assert len(dataset) == 3 * 3 * 4  # mods * snrs * frames
+
+    iq, label, snr = dataset[0]
+    assert isinstance(iq, torch.Tensor)
+    assert iq.shape == (2, 8)
+    assert iq.dtype == torch.float32
+    assert iq.device.type == "cpu"
+    assert label == 0
+    assert snr == -4
+
+
+def test_dataset_filters_snr(synthetic_h5):
+    config = RadioMLConfig(
+        h5_path=str(synthetic_h5), kaggle_dataset=None, snr_range=(0, 4), normalize=False
+    )
+    dataset = RadioML2018Dataset(config)
+
+    assert len(dataset) == 3 * 2 * 4  # solo SNR 0 y 4
+    snrs = {int(dataset[i][2]) for i in range(len(dataset))}
+    assert snrs == {0, 4}
+
+
+def test_dataset_filters_modulations(synthetic_h5):
+    keep = (MODULATIONS_2018[0], MODULATIONS_2018[2])
+    config = RadioMLConfig(
+        h5_path=str(synthetic_h5), kaggle_dataset=None, modulations=keep, normalize=False
+    )
+    dataset = RadioML2018Dataset(config)
+
+    assert len(dataset) == 2 * 3 * 4  # 2 mods * 3 snrs * 4 frames
+    labels = {int(dataset[i][1]) for i in range(len(dataset))}
+    assert labels == {0, 2}
+
+
+def test_dataset_normalizes(synthetic_h5):
+    config = RadioMLConfig(h5_path=str(synthetic_h5), kaggle_dataset=None, normalize=True)
+    dataset = RadioML2018Dataset(config)
+
+    iq, _, _ = dataset[5]
+    power = float((iq**2).sum(dim=0).mean())
+    assert abs(power - 1.0) < 1e-4

@@ -5,10 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import h5py
 import kagglehub
 import numpy as np
+import torch
 import yaml
 from numpy.typing import NDArray
+from torch.utils.data import Dataset
+
+from cog_ew.data.preprocessing import normalize_power, to_channels_first
 
 MODULATIONS_2018: tuple[str, ...] = (
     "OOK",
@@ -90,3 +95,37 @@ def _mask_to_runs(mask: NDArray[np.bool_]) -> list[tuple[int, int]]:
         start = prev = current
     runs.append((start, prev + 1))
     return runs
+
+
+class RadioML2018Dataset(Dataset[tuple[torch.Tensor, int, int]]):
+    def __init__(self, config: RadioMLConfig) -> None:
+        path = resolve_h5_path(config)
+        with h5py.File(path, "r") as fh:
+            labels = np.asarray(fh["Y"]).argmax(axis=1)
+            snr = np.asarray(fh["Z"])[:, 0].astype(np.int64)
+            mask = np.ones(labels.shape[0], dtype=bool)
+            if config.snr_range is not None:
+                low, high = config.snr_range
+                mask &= (snr >= low) & (snr <= high)
+            if config.modulations is not None:
+                keep_idx = {MODULATIONS_2018.index(name) for name in config.modulations}
+                mask &= np.isin(labels, list(keep_idx))
+            runs = _mask_to_runs(mask)
+            chunks = [np.asarray(fh["X"][start:stop]) for start, stop in runs]
+
+        x = (
+            np.concatenate(chunks, axis=0) if chunks else np.empty((0, 0, 2), dtype=np.float32)
+        ).astype(np.float32)
+        if config.normalize and x.shape[0] > 0:
+            x = normalize_power(x)
+        x = to_channels_first(x)
+
+        self._x = torch.from_numpy(np.ascontiguousarray(x))
+        self._labels = torch.from_numpy(labels[mask].astype(np.int64))
+        self._snr = torch.from_numpy(snr[mask])
+
+    def __len__(self) -> int:
+        return int(self._x.shape[0])
+
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, int, int]:
+        return self._x[index], int(self._labels[index]), int(self._snr[index])
