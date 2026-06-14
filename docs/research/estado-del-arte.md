@@ -36,10 +36,19 @@ Un problema práctico transversal es el **crecimiento del espacio de acción**: 
 *(lectura completa: Sensors / PMC9601320)*
 
 - **Problema:** un jammer aprende a interrumpir un enlace de comunicaciones cuyas partes adaptan modulación, potencia y frecuencia (estrategia anti-jamming fija: subir potencia → cambiar frecuencia → cambiar modulación). Escenario no cooperativo, pocas interacciones.
-- **Formulación MDP:** el estado combina los parámetros de comunicación observados con la acción de jamming previa (`Sₜ = Sₜ* + aₜ`). La acción es un vector discreto de modulación/potencia/frecuencia. La recompensa es a trozos: premia SER ≥ umbral, bonifica alineación en frecuencia y penaliza consumo de potencia excesivo.
-- **Algoritmo y arquitectura:** **Soft Actor-Critic** con una **arquitectura Wolpertinger mejorada** que discretiza la salida continua de SAC vía K-NN y expande el conjunto de proto-acciones con combinaciones de frecuencia. Red de política con 4 capas ocultas (128→256→512→128) y cuatro Q-networks idénticas, ReLU.
+- **Formulación MDP:** el estado combina los parámetros de comunicación observados con la acción de jamming previa (`Sₜ = Sₜ* + aₜ`). La acción es un vector discreto **modulación × potencia × frecuencia**; el espacio máximo probado es **1.200 acciones = 4 × 30 × 10** (modulaciones × niveles de potencia × puntos de frecuencia). La recompensa es a trozos: cuando el SER supera el umbral `X` se da recompensa alta con un **factor de alineación de frecuencia `F1`** (1 si la frecuencia de jamming coincide con la de las partes) más un **factor de recompensa** y un **penalizador de potencia** (evita que el agente persiga ciegamente la potencia máxima); por debajo del umbral, se usa la distancia en frecuencia como guía.
+- **Algoritmo y arquitectura:** **Soft Actor-Critic** con una **arquitectura Wolpertinger mejorada** que produce una *proto-action* continua, la mapea al espacio discreto vía **K-NN** y expande el conjunto candidato con combinaciones de frecuencia. Red de política con 4 capas ocultas (128→256→512→128) y cuatro Q-networks idénticas, ReLU.
 - **Entrenamiento:** replay de 10⁶ muestras; LR actor/critic = 0,0015; γ = 0,1 (prioriza convergencia inmediata); τ = 0,005; batch 100; coeficiente de entropía dinámico decreciente; canal AWGN a SNR 20 dB. Co-simulación MATLAB↔Python.
-- **Resultados:** con 150 acciones, Improved-SAC alcanza 90 % de acierto en la ronda 29 y ~93,85 % de media (vs. 83,26 % de SAC base). Con 600 acciones: 91,95 % vs. 85,34 %. Con 1.200 acciones: 87,83 % de media mientras **Q-learning y DQN no convergen**. Demuestra escalabilidad a espacios de acción grandes.
+- **Resultados (escalabilidad del espacio de acción):**
+
+  | Nº acciones | Improved-SAC (media) | SAC base | Q-learning / DQN |
+  |---|---|---|---|
+  | 20 | 98,29 % (100 % en ronda 9) | — | inferior |
+  | 150 | 93,85 % (90 % en ronda 29) | 83,26 % | inferior |
+  | 600 | 91,95 % | 85,34 % | inferior |
+  | 1.200 | 87,83 % | 78,83 % | **no convergen** |
+
+  Demuestra que el acoplamiento Wolpertinger permite escalar a espacios de acción grandes donde DQN colapsa.
 - **Limitaciones declaradas:** la librería de acciones de jamming es aún pequeña para complejidad real; no modela ocupación de canal; la recompensa basada en SER se reconoce subóptima.
 
 ### 1.3 Caso de estudio B — Diseño de forma de onda anti-jamming con D3QN
@@ -49,8 +58,16 @@ Aunque es la **perspectiva del radar** (anti-jamming), ilustra con detalle la fo
 
 - **Problema:** radar aerotransportado de banda X (9,5 GHz, 100 MHz de ancho) diseña en tiempo real su forma de onda transmitida para maximizar SJNR ante jamming de lóbulo principal, clutter no gaussiano y ruido.
 - **Formulación MDP:** estado = distribución de potencia del jammer en 5 sub-bandas × 6 niveles → 6⁵ = 7.776 estados; acción = forma de onda del radar con la misma discretización (7.776 acciones); recompensa ∝ SJNR; γ = 0,9.
-- **Algoritmo:** **Dueling Double DQN (D3QN)** con *fixed Q-targets* y *prioritized experience replay* (prioridad pᵢ = |δᵢ| + ε).
-- **Resultados:** a Ps = 5 W, Pⱼ = 10 W, D3QN logra **15,8 dB de SJNR** (vs. 13,7 dB de *policy iteration* y 12,8 dB de LFM convencional) y **97 % de probabilidad de detección** (vs. 70 % y 53 %). A Pⱼ = 30 W: 99,84 % vs. 92,27 % vs. 83,95 %.
+- **Algoritmo:** **Dueling Double DQN (D3QN)** con *fixed Q-targets* y *prioritized experience replay* (prioridad pᵢ = |δᵢ| + ε). Síntesis de forma de onda transmisible vía método de transformación iterativa (ITM).
+- **Resultados (Ps = 5 W, Pⱼ = 10 W salvo indicado):**
+
+  | Forma de onda | SJNR | Prob. detección |
+  |---|---|---|
+  | LFM convencional | 12,8 dB | 53 % |
+  | RL (policy iteration) | 13,7 dB | 70 % |
+  | **D3QN** | **15,8 dB** | **97 %** |
+
+  Mejora cabecera: **+2,08 dB de SJNR y +26,79 % de prob. de detección vs. RL**, y **+3,03 dB / +44,25 % vs. LFM**. A Pⱼ = 30 W, Pd = 99,84 % (D3QN) vs. 92,27 % (RL) vs. 83,95 % (LFM).
 - **Limitaciones declaradas:** espacio discreto (se sugiere formulación continua); recompensa monolítica (solo SJNR); modelo de jammer idealizado (observabilidad perfecta, sin retardos); validación solo en simulación con parámetros sintéticos fijos; **no se reporta tiempo de convergencia ni latencia de inferencia**; escenarios multi-jammer no explorados.
 
 ### 1.4 Hueco / oportunidad para el TFM (modelo 1)
