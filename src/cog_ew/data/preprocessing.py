@@ -23,3 +23,29 @@ def iq_to_complex(iq: NDArray[np.floating]) -> NDArray[np.complexfloating]:
 
 def complex_to_iq(z: NDArray[np.complexfloating]) -> NDArray[np.float32]:
     return np.stack([z.real, z.imag], axis=-1).astype(np.float32)
+
+
+def toa_to_pri(toa: NDArray[np.floating]) -> NDArray[np.float32]:
+    pri = np.empty_like(toa, dtype=np.float32)
+    pri[1:] = np.diff(toa)
+    pri[0] = pri[1] if pri.shape[0] > 1 else 0.0
+    return pri
+
+
+def normalize_pdw(cont: NDArray[np.floating], ranges: NDArray[np.floating]) -> NDArray[np.float32]:
+    lo = ranges[:, 0]
+    span = ranges[:, 1] - ranges[:, 0]
+    out = (cont - lo) / span
+    return np.clip(out, 0.0, 1.0).astype(np.float32)
+
+
+def one_hot_intra_pulse(codes: NDArray[np.integer], k: int) -> NDArray[np.float32]:
+    onehot: NDArray[np.float32] = np.eye(k, dtype=np.float32)[codes]
+    return onehot
+
+
+def window_sequence(seq: NDArray[np.floating], n: int) -> NDArray[np.float32]:
+    n_windows = seq.shape[0] // n
+    trimmed = seq[: n_windows * n]
+    reshaped = trimmed.reshape(n_windows, n, seq.shape[1])
+    return np.transpose(reshaped, (0, 2, 1)).astype(np.float32)
