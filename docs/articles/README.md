@@ -13,6 +13,7 @@ Descargados el 2026-06-14. Numeración alineada con la sección 8 (Referencias) 
 | `04_cWGAN-GP_LPD_waveforms_arXiv2403.12254.pdf` | 4 | Adaptive LPD Radar Waveform Design with Generative DL (cWGAN-GP, usa RadioML 2018.01A) | arXiv 2403.12254 |
 | `05_QMIX_swarm_antijam_arXiv2512.16813.pdf` | 3 | Coordinated Anti-Jamming Resilience in Swarm Networks via MARL (QMIX) | arXiv 2512.16813 |
 | `06_attribute_RNN_emitter_arXiv1911.07683.pdf` | 2 | Radar Emitter Classification with Attribute-specific RNNs | arXiv 1911.07683 |
+| `07_MA-CJD_cooperative_jamming_AIS2025.pdf` | 3 | MA-CJD: cooperative jamming decision-making (QMIX + MP-DQN + Double DQN) — leído completo | Autonomous Intelligent Systems 5:3, SpringerOpen |
 | `16_ECM_no_threat_db_US11808882.pdf` | 5 | Radar electronic countermeasures without a threat database (patente) | USPTO US 11808882 |
 
 ## No descargables automáticamente (paywall / Cloudflare)
@@ -21,7 +22,6 @@ Recuperar manualmente desde institución o navegador si se necesitan a texto com
 
 | Ref | Modelo | Título | Motivo | Enlace |
 |-----|--------|--------|--------|--------|
-| 7 | 3 | MA-CJD: cooperative jamming decision-making via MARL (QMIX + MP-DQN) | Springer (login) | https://link.springer.com/article/10.1007/s43684-025-00090-4 |
 | 8 | 1/3 | Improving anti-jamming decision-making for cognitive radar via MARL | ScienceDirect (paywall) | https://www.sciencedirect.com/science/article/abs/pii/S1051200423000477 |
 | 9 | 3 | FDA Radar & Jammer Frequency-Domain Power Countermeasures via MARL | MDPI (Cloudflare 403) | https://doi.org/10.3390/rs16122127 |
 | 10 | 1 | Hybrid Game-Theoretic and RL for Adaptive Radar Jamming | ResearchGate | https://www.researchgate.net/publication/397230778 |

@@ -99,29 +99,62 @@ Propone **procesamiento RNN específico por atributo**: cada característica del
 
 ## 3. Multi-Agent RL para coordinación en formación
 
+> **Modelo con análisis en profundidad.** Esta sección es el *deep dive* del modelo 3: el caso de estudio A (MA-CJD) se ha leído íntegro (PDF en `../articles/07...pdf`) por ser la plantilla más cercana al objetivo del TFM.
+
 ### 3.1 Planteamiento del campo
 
 El problema se modela como **juego de Markov / Dec-POMDP**: varios agentes EW (aeronaves o jammers) con observación local deben coordinar emisiones para un objetivo común (suprimir un IADS, mantener comunicaciones). El esquema dominante es **CTDE** (*Centralized Training, Decentralized Execution*): se entrena con información global pero cada agente ejecuta solo con su observación local.
 
-El algoritmo de referencia es **QMIX**, que aprende una función de valor de acción **centralizada pero factorizable** (mezcla monótona de los valores individuales), resolviendo el problema de asignación de crédito entre agentes. Líneas activas 2024-25: **MARL jerárquico** contra agilidad/diversidad de frecuencia, **asignación cooperativa de recursos de jamming** y control de enjambres UAV bajo EW.
+El algoritmo de referencia es **QMIX**, que aprende una función de valor de acción **centralizada pero factorizable** (mezcla monótona de los valores individuales mediante una *hyper-network* con pesos no negativos que garantiza la condición *Individual-Global-Max*), resolviendo la **asignación de crédito** entre agentes. Dos problemas que QMIX mitiga y conviene conocer: la **no estacionariedad** (cada agente es parte del entorno de los demás) y la **"pereza" de agente** (la recompensa global puede desincentivar a un agente concreto). Líneas activas 2024-25: **MARL jerárquico** contra agilidad/diversidad de frecuencia, **asignación cooperativa de recursos de jamming** y control de enjambres UAV bajo EW.
 
-### 3.2 Caso de estudio A — MA-CJD: decisión de jamming cooperativo
-*(abstract/snippet verificado: Springer AIS, 2025, s43684-025-00090-4)*
+Una limitación técnica recurrente: cuando la decisión combina **modo discreto + parámetros continuos** (p. ej. técnica de jamming + nivel de potencia), QMIX por sí solo no basta — discretizar la potencia pierde precisión. La solución de referencia es acoplar QMIX con una arquitectura de **acción parametrizada** (MP-DQN).
 
-Modela la **decisión de jamming cooperativo como juego de Markov** y aplica **QMIX** para la cooperación entre jammers. Para manejar el **espacio de acción parametrizado** (técnica discreta + parámetros continuos) adopta la estructura **MP-DQN**, formando el algoritmo **MA-CJD**. Resultados: reduce significativamente el tiempo durante el cual las unidades a proteger son detectadas, **minimizando a la vez el consumo de recursos de jamming**, y supera a algoritmos previos en escenarios cooperativos. *(Es la plantilla más cercana al modelo 3; conviene obtener el PDF completo para arquitectura e hiperparámetros.)*
+### 3.2 Caso de estudio A (deep dive) — MA-CJD: jamming cooperativo contra radares en red
+*(lectura completa del PDF: Cai et al., Autonomous Intelligent Systems 5:3, 2025, SpringerOpen — artículo 07)*
+
+Es, en la práctica, **un escenario de supresión de IADS**: varios jammers protegen unidades de defensa frente a una red de radares cooperativos. Mapea casi 1:1 con el modelo 3 del TFM (un agente por plataforma coordinando deception + gestión de potencia).
+
+- **Escenario:** **4 jammers vs 4 radares**. Jammers a 50 km del centro en azimuts 45/−45/135/−135°; radares a distancia ~N(400 km, 30 km) y azimut uniforme, avanzando hacia el centro; cuando un radar fija (lock) una unidad o un señuelo, pasa a modo seguimiento. Movimiento en plano 2D. Cuatro tipos de radar con distinta amenaza (Tabla 1: potencia 300/300/180/100 MW; factores anti-jamming de lóbulo principal/lateral distintos).
+- **Formulación (juego de Markov `⟨N,S,Aᵢ,p,r,γ⟩`):** los agentes son los jammers; el modelo de radar es el entorno.
+  - **Acción parametrizada `uᵢ = (Tᵢ, Pᵢ)`:** `Tᵢ` discreto codifica **objetivo + tipo** (`Tᵢ=0` sin jamming; par → deception, impar → suppression; `⌊(Tᵢ+1)/2⌋` = ID del objetivo), con `K = 2·|R|` (aquí 9 acciones discretas, `2×4+1`). `Pᵢ ∈ [0,1]` es el **nivel de potencia continuo** (mapeado a potencia real entre `P_min` y `P_max`).
+  - **Recompensa `r = r_d + r_p + r_j`:** `r_d` penaliza que un radar fije una unidad (entre −1,2 y −0,8 según amenaza del radar: −0,9/−1,1/−1,0/−1,0); `r_p` penaliza el consumo de potencia (lineal, entre −0,1 y −0,01); `r_j` es la **probabilidad de éxito de jamming** (para deception, `1 − ∏(1−p_det,i)` sobre falsos blancos que superan el SNR del blanco real; para suppression, la reducción de probabilidad de detección del eco). Diseño que prioriza evadir detección, equilibrando eficiencia de potencia.
+  - **Estado (vector de 48 dim):** por cada radar, atributos inherentes (potencia pico `Pₜ`, ancho de haz `θₘ`, periodo de barrido `Tₛ`, tipo de radar one-hot) + dinámicos (dirección de haz `θₐ`, posición `posᵣ`); más las posiciones de los jammers.
+- **Algoritmo (MA-CJD = QMIX + MP-DQN + Double DQN):** cada agente tiene una **Actor network** (3 capas FC, dim 128, ReLU, salida Sigmoid → nivel de potencia por cada acción discreta) y una **Q network** *multi-pass* con **capa oculta GRU de 128** (incorpora historial estado-acción), salida de 9 valores. La **Mixing network** es una hyper-network de 2 capas (ELU, 64 dim) con pesos en valor absoluto (IGM). **Double DQN** desacopla selección (red original) y evaluación (red objetivo) para mitigar sobreestimación del target TD.
+- **Entrenamiento e implementación:** ε-greedy de 0,95 → 0,05 decayendo en 100.000 pasos; LR `α=0,005` (Q + Mixing) y `β=0,003` (Actor); Adam; por ciclo, 16 episodios de interacción + 4 iteraciones muestreando 32 episodios; 100.000 pasos totales. Entorno en **C++** (servidor) + cliente **Python 3.12**; redes en **PyTorch 2.4 / CUDA 12.4**; hardware Intel i9-13900 + RTX 4090. *(Nota: mismo stack PyTorch 2.4/CUDA 12.4 que el TFM.)*
+- **Resultados (Tabla 2, medias sobre 32 experimentos):**
+
+  | Estrategia | Duración total de lock (s) ↓ | Suma de potencia de jamming ↓ |
+  |---|---|---|
+  | Random | 84,49 | 69,61 |
+  | Rule-based | 70,18 | 67,38 |
+  | PER-DDQN | 66,32 | 64,89 |
+  | QMix | 65,70 | 60,98 |
+  | **MA-CJD** | **37,91** | **35,94** |
+
+  MA-CJD logra la **menor duración de lock (37,91 s, −45,98 % vs. rule-based)** y el **menor consumo (35,94, −46,66 % vs. rule-based)**. Frente a QMix puro, añadir MP-DQN **reduce el consumo de recursos un 41,06 % y el tiempo de detección un 42,30 %**. Durante el entrenamiento el tiempo de lock baja **>60 %**. Es el único método que aprende a **modular la potencia según el estado** (poca potencia lejos, más al acercarse el radar).
+- **Limitaciones declaradas:** modelo aún simplificado (2D, sin altitud); se plantea incorporar modelos y parámetros más detallados para aplicabilidad práctica. No reporta **latencia de inferencia**.
 
 ### 3.3 Caso de estudio B — QMIX para resiliencia anti-jamming en enjambres
-*(extracción honesta del abstract: arXiv 2512.16813)*
+*(lectura del texto completo HTML: arXiv 2512.16813)*
 
-- **Problema:** proteger redes de enjambre robótico frente a *reactive jammers* que interrumpen selectivamente las comunicaciones inter-agente.
-- **Formulación:** cada agente **selecciona conjuntamente frecuencia (canal) y potencia**; QMIX aprende una función de valor centralizada pero factorizable que permite **ejecución descentralizada coordinada** (CTDE confirmado). *La recompensa exacta no se explicita en el abstract.*
-- **Baselines:** política óptima "genie-aided", UCB local, política reactiva sin estado.
-- **Resultados:** QMIX **converge rápido a políticas cooperativas que casi igualan la cota genie-aided** y logra mayor throughput y menor incidencia de jamming que los baselines. *(Detalles de la mixing network y límites no constan en el abstract.)*
+Complementa al anterior desde el lado de **comunicaciones** (no jamming ofensivo), con detalle de recompensa y entorno:
 
-> Nota de confianza: una fuente tipo *survey* (arXiv 2508.11687) devolvió tablas de métricas con apariencia inferida por el extractor; **no se citan esas cifras** aquí por falta de fiabilidad.
+- **Problema:** proteger redes de enjambre frente a un *reactive jammer* markoviano con umbral.
+- **Formulación:** acción conjunta por agente `(canal cᵢ, potencia Pᵢ)` con `M ∈ {4,8,10}` canales y `N ∈ {5,10}` agentes. **Observación local:** potencia recibida por canal + acción y recompensa previas. **Estado central (solo entrenamiento):** potencia agregada por canal + estado del jammer. **Recompensa:** throughput individual `log₂(1+SINR)` menos penalización de interferencia co-canal `λ/d_ij^β`; recompensa de equipo = suma. Canal Rayleigh con *block fading* (`T_c=100`); jammer con dos umbrales (`θ_H=0,4`, `θ_L=0,2`).
+- **Baselines:** óptimo "genie-aided", UCB local, heurística reactiva sin estado.
+- **Resultados:** QMIX **converge a políticas cooperativas que casi igualan la cota genie-aided** (con `M=10`); con `N=10, M=4` el margen sobre los baselines **supera el 50 %** en convergencia, con ejecución totalmente descentralizada. *(El artículo da curvas, no tablas numéricas exactas de throughput.)*
+- **Limitaciones declaradas:** un solo jammer, agentes homogéneos, sin modelar latencia ni restricciones de energía/sensado ruidoso (futuro trabajo).
+
+> Nota de confianza: una fuente tipo *survey* (arXiv 2508.11687) devolvió tablas de métricas con apariencia inferida por el extractor; **no se citan esas cifras**.
 
 ### 3.4 Hueco / oportunidad para el TFM (modelo 3)
-La mayoría de trabajos trata **asignación de recursos abstracta** (frecuencia/potencia). Más operacional y diferenciable: **un agente por aeronave** que coordina *deception* + gestión de potencia para **supresión de IADS**, evaluado con **métricas EW reales** (J/S ratio, burnthrough range) en un escenario tipo NTTR, en lugar de throughput de comunicaciones.
+
+El MA-CJD es la base más sólida y reutilizable. Diferenciadores concretos del TFM frente a él:
+1. **Métricas EW operacionales** (J/S ratio, burnthrough range, POI) en lugar de solo "duración de lock" y "suma de potencia" — más interpretables para revisores de dominio.
+2. **Escenario NTTR (PBECR/TPECR)** con parámetros SIADS publicados (SA-2 a S-400), frente a 4 tipos de radar sintéticos.
+3. **Deception coordinada explícita** entre aeronaves (no solo asignación objetivo+potencia).
+4. **Latencia de inferencia documentada** (media + p99) — ausente en MA-CJD y en el resto.
+5. **Reutilizar la receta probada**: QMIX + MP-DQN (acción parametrizada modo+potencia) + Double DQN + Q-net con GRU es un punto de partida validado; el TFM puede adoptarla y enfocar la contribución en escenario/realismo/latencia.
 
 ---
 
@@ -189,10 +222,10 @@ No es un frente de ML, sino el **baseline rule-based** contra el que se mide la 
 3. *Specific Radar Recognition Based on Characteristics of Emitted Radio Waveforms Using CNNs* — Sensors (PMC8707803). https://pmc.ncbi.nlm.nih.gov/articles/PMC8707803/
 4. *Adaptive LPD Radar Waveform Design with Generative Deep Learning* — arXiv 2403.12254. https://arxiv.org/html/2403.12254
 5. *Coordinated Anti-Jamming Resilience in Swarm Networks via Multi-Agent RL* — arXiv 2512.16813. https://arxiv.org/abs/2512.16813
+7. *A cooperative jamming decision-making method based on MARL (MA-CJD: QMIX + MP-DQN + Double DQN)* — Cai et al., Autonomous Intelligent Systems 5:3, 2025 (SpringerOpen, acceso abierto). https://doi.org/10.1007/s43684-025-00090-4
 
 **Abstract / snippet verificado (re-verificar cuerpo antes de citar cifras):**
 6. *Radar Emitter Classification with Attribute-specific RNNs* — arXiv 1911.07683. https://arxiv.org/abs/1911.07683
-7. *A cooperative jamming decision-making method based on MARL (MA-CJD, QMIX + MP-DQN)* — Autonomous Intelligent Systems, Springer 2025. https://link.springer.com/article/10.1007/s43684-025-00090-4
 8. *Improving anti-jamming decision-making for cognitive radar via MARL* — Signal Processing, 2023. https://www.sciencedirect.com/science/article/abs/pii/S1051200423000477
 9. *Frequency Diversity Array Radar and Jammer Frequency-Domain Power Countermeasures via MARL* — Remote Sensing 16(11):2127, 2024. https://doi.org/10.3390/rs16122127
 10. *Hybrid Game-Theoretic and Reinforcement Learning for Adaptive Radar Jamming Decision-Making* — 2025. https://www.researchgate.net/publication/397230778
@@ -206,4 +239,4 @@ No es un frente de ML, sino el **baseline rule-based** contra el que se mide la 
 16. *Radar electronic countermeasures without a threat database* — patente US 11808882. https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/11808882
 17. *Jammer Versus Radar in a Cognitive Electronic Warfare Setting* — preprint TechRxiv, 2025/26. https://www.techrxiv.org/doi/pdf/10.36227/techrxiv.176537934.47026414
 
-> **Aviso de fiabilidad.** Algunas fechas de publicación (2026) y enlaces de ResearchGate/paywall provienen de extracción automática y deben confirmarse en la fuente original antes de la bibliografía final del TFM. Las cifras de los casos de estudio 1.2, 1.3, 2.2 y 4.2 provienen de lectura completa del artículo; las de los casos 2.3, 3.2 y 3.3 provienen solo del abstract.
+> **Aviso de fiabilidad.** Algunas fechas de publicación (2026) y enlaces de ResearchGate/paywall provienen de extracción automática y deben confirmarse en la fuente original antes de la bibliografía final del TFM. Las cifras de los casos de estudio 1.2, 1.3, 2.2, 3.2, 3.3 y 4.2 provienen de **lectura completa** del artículo; las del caso 2.3 provienen solo del abstract.
