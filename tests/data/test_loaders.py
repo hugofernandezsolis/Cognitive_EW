@@ -8,6 +8,7 @@ from cog_ew.data.loaders import (
     RadioMLConfig,
     _mask_to_runs,
     resolve_h5_path,
+    split_dataset,
 )
 
 
@@ -146,3 +147,27 @@ def test_dataset_normalizes(synthetic_h5):
     iq, _, _ = dataset[5]
     power = float((iq**2).sum(dim=0).mean())
     assert abs(power - 1.0) < 1e-4
+
+
+def test_split_dataset_sizes(synthetic_h5):
+    config = RadioMLConfig(h5_path=str(synthetic_h5), kaggle_dataset=None, normalize=False)
+    dataset = RadioML2018Dataset(config)  # 36 ejemplos
+
+    train, val, test = split_dataset(dataset, (0.5, 0.25, 0.25), seed=0)
+
+    assert len(train) + len(val) + len(test) == len(dataset)
+    assert len(train) == 18
+    assert len(val) == 9
+    assert len(test) == 9
+
+
+def test_split_dataset_deterministic(synthetic_h5):
+    config = RadioMLConfig(h5_path=str(synthetic_h5), kaggle_dataset=None, normalize=False)
+    dataset = RadioML2018Dataset(config)
+
+    a = split_dataset(dataset, (0.5, 0.25, 0.25), seed=0)[0].indices
+    b = split_dataset(dataset, (0.5, 0.25, 0.25), seed=0)[0].indices
+    c = split_dataset(dataset, (0.5, 0.25, 0.25), seed=1)[0].indices
+
+    assert list(a) == list(b)
+    assert list(a) != list(c)

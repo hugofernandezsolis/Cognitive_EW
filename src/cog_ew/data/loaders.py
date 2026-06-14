@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,7 +12,7 @@ import numpy as np
 import torch
 import yaml
 from numpy.typing import NDArray
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Subset, random_split
 
 from cog_ew.data.preprocessing import normalize_power, to_channels_first
 
@@ -129,3 +130,12 @@ class RadioML2018Dataset(Dataset[tuple[torch.Tensor, int, int]]):
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, int, int]:
         return self._x[index], int(self._labels[index]), int(self._snr[index])
+
+
+def split_dataset(
+    dataset: Dataset[tuple[torch.Tensor, int, int]],
+    fractions: Sequence[float],
+    seed: int,
+) -> list[Subset[tuple[torch.Tensor, int, int]]]:
+    generator = torch.Generator().manual_seed(seed)
+    return random_split(dataset, list(fractions), generator=generator)
