@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import time
+
+import numpy as np
 import torch
+from torch import nn
 
 
 def macro_accuracy(preds: torch.Tensor, targets: torch.Tensor, num_classes: int) -> float:
@@ -22,3 +26,44 @@ def confusion_matrix(preds: torch.Tensor, targets: torch.Tensor, num_classes: in
     for t, p in zip(targets.tolist(), preds.tolist(), strict=True):
         cm[t, p] += 1
     return cm
+
+
+def lpi_accuracy(
+    type_preds: torch.Tensor,
+    type_targets: torch.Tensor,
+    lpi_indices: tuple[int, ...],
+) -> float:
+    lpi = torch.tensor(list(lpi_indices), dtype=type_targets.dtype)
+    mask = torch.isin(type_targets, lpi)
+    if int(mask.sum().item()) == 0:
+        return 0.0
+    return float((type_preds[mask] == type_targets[mask]).float().mean().item())
+
+
+def profile_latency(
+    model: nn.Module,
+    sample: torch.Tensor,
+    *,
+    n_warmup: int = 10,
+    n_iter: int = 100,
+    device: str = "cpu",
+) -> tuple[float, float]:
+    dev = torch.device(device)
+    model.eval()
+    model.to(dev)
+    sample = sample.to(dev)
+    is_cuda = dev.type == "cuda"
+    times: list[float] = []
+    with torch.no_grad():
+        for _ in range(n_warmup):
+            model(sample)
+        if is_cuda:
+            torch.cuda.synchronize()
+        for _ in range(n_iter):
+            start = time.perf_counter()
+            model(sample)
+            if is_cuda:
+                torch.cuda.synchronize()
+            times.append((time.perf_counter() - start) * 1000.0)
+    arr = np.asarray(times)
+    return float(arr.mean()), float(np.percentile(arr, 99))
