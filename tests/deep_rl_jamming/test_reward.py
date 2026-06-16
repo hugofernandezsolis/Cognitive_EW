@@ -1,4 +1,4 @@
-from cog_ew.deep_rl_jamming.reward import jamming_effectiveness
+from cog_ew.deep_rl_jamming.reward import compute_reward, jamming_effectiveness
 from cog_ew.ew_library.library import JammingTechnique
 
 MATRIX = {
@@ -43,3 +43,37 @@ def test_band_mismatch_kills_effectiveness():
     )
     assert suppressed is False
     assert j_s < 0.0
+
+
+RKW = dict(
+    burnthrough=15.0,
+    w_eff=1.0,
+    lambda_power=0.5,
+    n_power_levels=4,
+    r_win=10.0,
+    r_lose=10.0,
+)
+
+
+def test_suppressed_beats_not_suppressed():
+    suppressed_r = compute_reward(40.0, True, power_level=0, terminal=None, **RKW)
+    failed_r = compute_reward(40.0, False, power_level=0, terminal=None, **RKW)
+    assert suppressed_r > failed_r
+
+
+def test_higher_power_is_penalised():
+    low = compute_reward(40.0, True, power_level=0, terminal=None, **RKW)
+    high = compute_reward(40.0, True, power_level=3, terminal=None, **RKW)
+    assert high < low
+
+
+def test_terminal_win_adds_bonus():
+    base = compute_reward(40.0, True, power_level=0, terminal=None, **RKW)
+    win = compute_reward(40.0, True, power_level=0, terminal="win", **RKW)
+    assert win == base + 10.0
+
+
+def test_terminal_lose_subtracts_penalty():
+    base = compute_reward(40.0, True, power_level=0, terminal=None, **RKW)
+    lose = compute_reward(40.0, True, power_level=0, terminal="lose", **RKW)
+    assert lose == base - 10.0
