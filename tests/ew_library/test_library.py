@@ -42,3 +42,31 @@ def test_from_yaml_rejects_unknown_technique(tmp_path):
     )
     with pytest.raises(ValueError):
         EWResponseLibrary.from_yaml(bad)
+
+
+def test_select_returns_ordered_combination_for_known_pair():
+    lib = EWResponseLibrary.from_yaml(LIB)
+    assert lib.select("S-400", "missile_guidance") == (
+        JammingTechnique.RGPO,
+        JammingTechnique.DRFM_REPEATER,
+        JammingTechnique.CHAFF,
+        JammingTechnique.EVASIVE,
+    )
+
+
+def test_select_falls_back_to_mode_default_for_uncatalogued_emitter():
+    lib = EWResponseLibrary.from_yaml(LIB)
+    assert lib.select("UNKNOWN-SAM", "track") == lib.defaults["track"]
+
+
+def test_select_raises_on_invalid_mode():
+    lib = EWResponseLibrary.from_yaml(LIB)
+    with pytest.raises(ValueError):
+        lib.select("S-400", "navigation")
+
+
+def test_select_lpi_response_is_deliberately_poor():
+    lib = EWResponseLibrary.from_yaml(LIB)
+    techniques = lib.select("LPI-FMCW", "track")
+    assert JammingTechnique.DRFM_REPEATER not in techniques
+    assert JammingTechnique.CROSS_EYE not in techniques

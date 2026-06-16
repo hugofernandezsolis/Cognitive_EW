@@ -8,6 +8,8 @@ from pathlib import Path
 
 import yaml
 
+from cog_ew.data.pdw_library import MODES
+
 
 class JammingTechnique(Enum):
     NOISE = "noise"
@@ -46,3 +48,10 @@ class EWResponseLibrary:
             mode: _parse_techniques(techniques) for mode, techniques in raw["defaults"].items()
         }
         return cls(rules=rules, defaults=defaults)
+
+    def select(self, emitter: str, mode: str) -> tuple[JammingTechnique, ...]:
+        if mode not in MODES:
+            raise ValueError(f"modo desconocido: {mode!r}")
+        if (emitter, mode) in self.rules:
+            return self.rules[(emitter, mode)]
+        return self.defaults[mode]
