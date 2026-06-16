@@ -23,7 +23,7 @@ ficha.
 | Capa de datos IQ (RadioML) | `src/cog_ew/data/` (`preprocessing`, `loaders`) | ✅ Completa, mergeada |
 | Capa de datos PDW/ELINT | `src/cog_ew/data/` (`pdw_library`, `pdw_generator`, `pdw_dataset`) | ✅ Completa, mergeada |
 | **Modelo 2** — Temporal CNN ELINT | `src/cog_ew/temporal_cnn_elint/` | ✅ Completo, mergeado |
-| **Modelo 5** — Baseline EW convencional | `src/cog_ew/ew_library/` | 📭 Stub |
+| **Modelo 5** — Baseline EW convencional | `src/cog_ew/ew_library/` | ✅ Completo, mergeado |
 | **Modelo 1** — Deep RL jamming | `src/cog_ew/deep_rl_jamming/` | 📭 Stub |
 | **Modelo 3** — MARL en formación | `src/cog_ew/marl_formation/` | 📭 Stub |
 | **Modelo 4** — GAN señales sintéticas | `src/cog_ew/gan_signals/` | 📭 Stub |
@@ -136,8 +136,8 @@ Capa de datos (IQ + PDW) ✅
 |---|---|---|
 | **0** | Capa de datos (IQ RadioML + PDW/ELINT) | ✅ Hecho |
 | **1** | Modelo 2 — Temporal CNN ELINT (slice entrenable) | ✅ Hecho |
-| **2** | Modelo 5 — Baseline EW convencional | ⏭️ Siguiente |
-| **3** | Modelo 1 — Deep RL jamming (entorno + agente + entrenamiento) | ⬜ Pendiente |
+| **2** | Modelo 5 — Baseline EW convencional | ✅ Hecho |
+| **3** | Modelo 1 — Deep RL jamming (entorno + agente + entrenamiento) | ⏭️ Siguiente |
 | **4** | Modelo 3 — MARL en formación | ⬜ Pendiente |
 | **5** | Modelo 4 — GAN señales sintéticas | ⬜ Pendiente |
 | **6** | Evaluación transversal (anclas Q1) + ejecución real en Colab + redacción del paper | ⬜ Pendiente |
