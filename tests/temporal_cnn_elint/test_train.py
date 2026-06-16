@@ -1,3 +1,5 @@
+import json
+
 from cog_ew.data.pdw_dataset import PDWConfig
 from cog_ew.temporal_cnn_elint.model import TemporalCNNConfig
 from cog_ew.temporal_cnn_elint.train import TrainConfig, train
@@ -60,3 +62,29 @@ def test_train_is_deterministic(tmp_path):
     a = train(_tiny_config(tmp_path / "a"))
     b = train(_tiny_config(tmp_path / "b"))
     assert a["train_loss_history"] == b["train_loss_history"]
+
+
+def test_train_writes_reproducibility_metadata(tmp_path):
+    train(_tiny_config(tmp_path))
+
+    meta = json.loads((tmp_path / "run_meta.json").read_text())
+    assert meta["seed"] == 0
+    assert meta["hyperparameters"]["batch_size"] == 16
+    assert meta["hyperparameters"]["data"]["window"] == 64
+    assert "torch" in meta["dependencies"]
+    assert "numpy" in meta["dependencies"]
+    assert "python" in meta["dependencies"]
+    assert isinstance(meta["data_config_hash"], str)
+    assert len(meta["data_config_hash"]) > 0
+
+
+def test_train_includes_confusion_matrices(tmp_path):
+    result = train(_tiny_config(tmp_path))
+
+    test_metrics = result["test"]
+    cm_type = test_metrics["confusion_type"]
+    cm_mode = test_metrics["confusion_mode"]
+    assert len(cm_type) == 8
+    assert len(cm_type[0]) == 8
+    assert len(cm_mode) == 4
+    assert len(cm_mode[0]) == 4

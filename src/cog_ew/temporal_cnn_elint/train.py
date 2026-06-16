@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import platform
 import random
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +20,7 @@ from cog_ew.data.loaders import split_dataset
 from cog_ew.data.pdw_dataset import PDWConfig, PDWSyntheticDataset
 from cog_ew.data.pdw_library import EmitterLibrary
 from cog_ew.temporal_cnn_elint.metrics import (
+    confusion_matrix,
     lpi_accuracy,
     macro_accuracy,
     profile_latency,
@@ -88,6 +91,21 @@ def _init_tracking(config: TrainConfig) -> Any:
     return trackio.init(project="temporal_cnn_elint", config=vars(config))
 
 
+def _run_metadata(config: TrainConfig) -> dict[str, Any]:
+    hyperparameters = asdict(config)
+    data_blob = json.dumps(asdict(config.data), sort_keys=True).encode()
+    return {
+        "seed": config.seed,
+        "hyperparameters": hyperparameters,
+        "data_config_hash": hashlib.sha256(data_blob).hexdigest(),
+        "dependencies": {
+            "python": platform.python_version(),
+            "torch": torch.__version__,
+            "numpy": np.__version__,
+        },
+    }
+
+
 def train(config: TrainConfig) -> dict[str, Any]:
     _set_seeds(config.seed)
     device = torch.device(config.device)
@@ -105,6 +123,7 @@ def train(config: TrainConfig) -> dict[str, Any]:
     run = _init_tracking(config) if config.tracking else None
     out_dir = Path(config.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "run_meta.json").write_text(json.dumps(_run_metadata(config), indent=2))
     best_path = out_dir / "best.pt"
     best_val = -1.0
     history: list[float] = []
@@ -147,10 +166,12 @@ def train(config: TrainConfig) -> dict[str, Any]:
     model.load_state_dict(torch.load(best_path, weights_only=True))
     library = EmitterLibrary.from_yaml(config.data.library_path)
     tp, tt, mp, mt = _collect_preds(model, test_loader, device)
-    test_metrics = {
+    test_metrics: dict[str, Any] = {
         "macro_acc_type": macro_accuracy(tp, tt, config.model.n_types),
         "macro_acc_mode": macro_accuracy(mp, mt, config.model.n_modes),
         "lpi_accuracy": lpi_accuracy(tp, tt, library.lpi_indices()),
+        "confusion_type": confusion_matrix(tp, tt, config.model.n_types).tolist(),
+        "confusion_mode": confusion_matrix(mp, mt, config.model.n_modes).tolist(),
     }
     sample = next(iter(test_loader))[0][:1].to(device)
     mean_ms, p99_ms = profile_latency(model, sample, n_warmup=5, n_iter=50, device=config.device)
