@@ -11,7 +11,8 @@ import yaml
 from numpy.typing import NDArray
 
 from cog_ew.data.pdw_library import CONTINUOUS_RANGES, MODES, EmitterLibrary, EmitterSpec
-from cog_ew.deep_rl_jamming.threat import RadarState
+from cog_ew.deep_rl_jamming.reward import jamming_effectiveness
+from cog_ew.deep_rl_jamming.threat import RadarState, advance_threat
 from cog_ew.ew_library.library import JammingTechnique
 
 _SCAN_MAX = 15.0
@@ -154,3 +155,115 @@ class IADSFormationEnv:
         self._last_actions = [0] * self.n_agents
         self._t = 0
         return self._obs(), self._global_state(), self._info("ongoing", 0)
+
+    def _technique_for(self, jam_type: int, mode: str) -> JammingTechnique:
+        if jam_type == 1:
+            return JammingTechnique.DECEPTION
+        best = max(
+            self.config.suppression_techniques,
+            key=lambda t: self.config.effectiveness[t][mode],
+        )
+        return JammingTechnique(best)
+
+    def step(
+        self, actions: dict[int, int]
+    ) -> tuple[
+        dict[int, NDArray[np.float32]],
+        NDArray[np.float32],
+        dict[int, float],
+        bool,
+        bool,
+        dict[str, Any],
+    ]:
+        decoded = {a: self._decode_action(int(actions[a])) for a in range(self.n_agents)}
+        suppressed_count = 0
+        advanced_count = 0
+        total_power = 0.0
+
+        for i in range(self.n_radars):
+            mode = self._ladders[i][self._states[i].mode_idx]
+            attempts: list[tuple[float, int, bool]] = []
+            for a in range(self.n_agents):
+                target, jam_type, power_level = decoded[a]
+                if target != i or jam_type == 0:
+                    continue
+                technique = self._technique_for(jam_type, mode)
+                tech_idx = self._techniques.index(technique)
+                band_match = not (
+                    self._states[i].eccm_active and tech_idx == self._states[i].eccm_technique_idx
+                )
+                j_s, suppressed = jamming_effectiveness(
+                    technique,
+                    power_level,
+                    mode,
+                    band_match,
+                    matrix=self.config.effectiveness,
+                    base_js_db=self.config.power_levels,
+                    js_scale=self.config.js_scale,
+                    burnthrough=self.config.burnthrough,
+                    eff_threshold=self.config.eff_threshold,
+                )
+                attempts.append((j_s, tech_idx, suppressed))
+
+            radar_suppressed = any(s for _, _, s in attempts)
+            if attempts:
+                pool = [(j, t) for j, t, s in attempts if s] or [(j, t) for j, t, _ in attempts]
+                best_tech_idx = max(pool, key=lambda x: x[0])[1]
+            else:
+                best_tech_idx = self._none_idx
+
+            self._states[i] = advance_threat(
+                self._states[i],
+                best_tech_idx,
+                radar_suppressed,
+                len(self._ladders[i]),
+                lock_gain=self.config.lock_gain,
+                lock_decay=self.config.lock_decay,
+                n_eccm=self.config.n_eccm,
+            )
+            if radar_suppressed:
+                suppressed_count += 1
+            else:
+                advanced_count += 1
+
+        for a in range(self.n_agents):
+            _, jam_type, power_level = decoded[a]
+            if jam_type != 0 and self._n_power > 1:
+                total_power += power_level / (self._n_power - 1)
+
+        self._last_actions = [int(actions[a]) for a in range(self.n_agents)]
+        self._t += 1
+
+        lose = any(
+            self._states[i].mode_idx == len(self._ladders[i]) - 1
+            and self._states[i].lock_energy >= 1.0
+            for i in range(self.n_radars)
+        )
+        terminated = lose
+        truncated = (not lose) and self._t >= self.config.horizon_t
+        if lose:
+            outcome = "lose"
+        elif truncated:
+            outcome = "win"
+        else:
+            outcome = "ongoing"
+
+        reward = (
+            -self.config.w_lock * advanced_count
+            - self.config.lambda_power * total_power
+            + self.config.w_supp * suppressed_count
+        )
+        if outcome == "win":
+            reward += self.config.r_win
+        elif outcome == "lose":
+            reward -= self.config.r_lose
+
+        rewards = {a: float(reward) for a in range(self.n_agents)}
+        return (
+            self._obs(),
+            self._global_state(),
+            rewards,
+            terminated,
+            truncated,
+            self._info(outcome, suppressed_count),
+        )
