@@ -12,7 +12,8 @@ import yaml
 from numpy.typing import NDArray
 
 from cog_ew.data.pdw_library import CONTINUOUS_RANGES, MODES, EmitterLibrary, EmitterSpec
-from cog_ew.deep_rl_jamming.threat import RadarState
+from cog_ew.deep_rl_jamming.reward import compute_reward, jamming_effectiveness
+from cog_ew.deep_rl_jamming.threat import RadarState, advance_threat
 from cog_ew.ew_library.library import JammingTechnique
 
 _SCAN_MAX = 15.0
@@ -127,3 +128,56 @@ class RadarJammingEnv(gym.Env[NDArray[np.float32], int]):
         self._history = np.zeros((self.config.history_k, _N_FEATURES), dtype=np.float32)
         obs = self._push_obs()
         return obs, self._info("ongoing", 0.0)
+
+    def step(self, action: int) -> tuple[NDArray[np.float32], float, bool, bool, dict[str, Any]]:
+        technique, power_level = self._decode_action(action)
+        technique_idx = self._techniques.index(technique)
+        mode = self._ladder[self._state.mode_idx]
+        band_match = not (
+            self._state.eccm_active and technique_idx == self._state.eccm_technique_idx
+        )
+        j_s, suppressed = jamming_effectiveness(
+            technique,
+            power_level,
+            mode,
+            band_match,
+            matrix=self.config.effectiveness,
+            base_js_db=self.config.power_levels,
+            js_scale=self.config.js_scale,
+            burnthrough=self.config.burnthrough,
+            eff_threshold=self.config.eff_threshold,
+        )
+        self._state = advance_threat(
+            self._state,
+            technique_idx,
+            suppressed,
+            len(self._ladder),
+            lock_gain=self.config.lock_gain,
+            lock_decay=self.config.lock_decay,
+            n_eccm=self.config.n_eccm,
+        )
+        self._t += 1
+        launch = self._state.mode_idx == len(self._ladder) - 1 and self._state.lock_energy >= 1.0
+        terminated = launch
+        truncated = (not launch) and self._t >= self.config.horizon_t
+        if launch:
+            outcome = "lose"
+        elif truncated:
+            outcome = "win"
+        else:
+            outcome = "ongoing"
+        terminal = outcome if outcome != "ongoing" else None
+        reward = compute_reward(
+            j_s,
+            suppressed,
+            power_level,
+            burnthrough=self.config.burnthrough,
+            w_eff=self.config.w_eff,
+            lambda_power=self.config.lambda_power,
+            n_power_levels=self._n_power,
+            r_win=self.config.r_win,
+            r_lose=self.config.r_lose,
+            terminal=terminal,
+        )
+        obs = self._push_obs()
+        return obs, reward, terminated, truncated, self._info(outcome, j_s)

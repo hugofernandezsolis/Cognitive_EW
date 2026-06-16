@@ -44,3 +44,64 @@ def test_encode_action_roundtrip():
     env = _env()
     action = env.encode_action(JammingTechnique.NONE, 0)
     assert action == list(JammingTechnique).index(JammingTechnique.NONE) * 4
+
+
+OPTIMAL = {
+    "search": [JammingTechnique.NOISE, JammingTechnique.DECEPTION],
+    "tws": [JammingTechnique.DECEPTION, JammingTechnique.NOISE],
+    "track": [JammingTechnique.CROSS_EYE, JammingTechnique.VGPO],
+    "missile_guidance": [JammingTechnique.CHAFF, JammingTechnique.RGPO],
+}
+
+
+def test_step_returns_gym_tuple():
+    env = _env()
+    env.reset(seed=0)
+    obs, reward, terminated, truncated, info = env.step(0)
+    assert obs.shape == (8, 5)
+    assert isinstance(reward, float)
+    assert isinstance(terminated, bool)
+    assert isinstance(truncated, bool)
+    assert info["outcome"] in {"ongoing", "win", "lose"}
+
+
+def test_passive_jammer_loses():
+    env = _env()
+    env.reset(seed=0)
+    passive = env.encode_action(JammingTechnique.NONE, 0)
+    outcome = "ongoing"
+    for _ in range(env.config.horizon_t):
+        _, _, terminated, truncated, info = env.step(passive)
+        outcome = info["outcome"]
+        if terminated or truncated:
+            break
+    assert outcome == "lose"
+
+
+def test_optimal_jammer_wins():
+    env = _env()
+    _, info = env.reset(seed=0)
+    last_technique = None
+    terminated = truncated = False
+    while not (terminated or truncated):
+        ranked = OPTIMAL[info["real_mode"]]
+        technique = ranked[1] if info["eccm_active"] and last_technique == ranked[0] else ranked[0]
+        last_technique = technique
+        action = env.encode_action(technique, env._n_power - 1)
+        _, _, terminated, truncated, info = env.step(action)
+    assert info["outcome"] == "win"
+
+
+def test_rollout_is_deterministic_by_seed():
+    def rollout() -> list[float]:
+        env = _env()
+        env.reset(seed=3)
+        rewards = []
+        for _ in range(10):
+            _, r, term, trunc, _ = env.step(5)
+            rewards.append(r)
+            if term or trunc:
+                break
+        return rewards
+
+    assert rollout() == rollout()
