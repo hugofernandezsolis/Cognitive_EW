@@ -1,0 +1,39 @@
+version: 1
+rules:
+  SA-2:
+    search: [noise]
+    track: [vgpo, noise]
+    missile_guidance: [rgpo, chaff]
+  SA-6:
+    search: [noise]
+    track: [vgpo, drfm_repeater]
+    missile_guidance: [rgpo, chaff, evasive]
+  S-300:
+    search: [noise]
+    tws: [noise, deception]
+    track: [vgpo, drfm_repeater]
+    missile_guidance: [rgpo, drfm_repeater, chaff]
+  S-400:
+    search: [noise]
+    tws: [noise, deception]
+    track: [vgpo, drfm_repeater]
+    missile_guidance: [rgpo, drfm_repeater, chaff, evasive]
+  HQ-9:
+    search: [noise]
+    track: [vgpo, drfm_repeater]
+    missile_guidance: [rgpo, drfm_repeater, chaff]
+  AESA:
+    search: [noise]
+    tws: [noise, deception]
+    track: [drfm_repeater, cross_eye]
+  LPI-FMCW:
+    search: [noise, evasive]
+    track: [evasive]
+  LPI-polyphase:
+    search: [noise, evasive]
+    track: [evasive]
+defaults:
+  search: [noise]
+  tws: [noise, deception]
+  track: [vgpo, chaff]
+  missile_guidance: [rgpo, chaff, evasive]
