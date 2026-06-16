@@ -105,3 +105,17 @@ def test_rollout_is_deterministic_by_seed():
         return rewards
 
     assert rollout() == rollout()
+
+
+def test_info_exposes_emitter_name():
+    from cog_ew.data.pdw_library import EmitterLibrary
+
+    env = _env()
+    _, info = env.reset(seed=0)
+    names = EmitterLibrary.from_yaml("configs/temporal_cnn_elint/emitters.yaml").emitter_names()
+    assert info["emitter"] in names
+
+
+def test_env_exposes_n_power_levels():
+    env = _env()
+    assert env.n_power_levels == 4

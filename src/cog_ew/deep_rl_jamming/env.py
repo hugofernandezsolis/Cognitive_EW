@@ -83,6 +83,10 @@ class RadarJammingEnv(gym.Env[NDArray[np.float32], int]):
     def encode_action(self, technique: JammingTechnique, power_level: int) -> int:
         return self._techniques.index(technique) * self._n_power + power_level
 
+    @property
+    def n_power_levels(self) -> int:
+        return self._n_power
+
     def _decode_action(self, action: int) -> tuple[JammingTechnique, int]:
         technique_idx, power_level = divmod(int(action), self._n_power)
         return self._techniques[technique_idx], power_level
@@ -111,6 +115,7 @@ class RadarJammingEnv(gym.Env[NDArray[np.float32], int]):
     def _info(self, outcome: str, j_s: float) -> dict[str, Any]:
         return {
             "real_mode": self._ladder[self._state.mode_idx],
+            "emitter": self._emitter.name,
             "j_s": j_s,
             "eccm_active": self._state.eccm_active,
             "outcome": outcome,
