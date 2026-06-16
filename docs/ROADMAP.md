@@ -28,6 +28,11 @@ ficha.
 | **Modelo 3** — MARL en formación | `src/cog_ew/marl_formation/` | 📭 Stub |
 | **Modelo 4** — GAN señales sintéticas | `src/cog_ew/gan_signals/` | 📭 Stub |
 
+> **Nota sobre la capa IQ (RadioML):** es **infraestructura compartida**, no específica de un modelo. La
+> capa PDW/ELINT alimenta directamente al Modelo 2; la capa IQ queda disponible como representación de señal
+> para los Modelos 1 (observaciones del agente RL) y 4 (entrada/salida de la GAN), pero su **consumidor final
+> y su forma exacta de uso se fijarán en el ciclo `spec → plan` de cada uno** de esos modelos.
+
 ## 3. Fichas por modelo
 
 Cada ficha resume objetivo (de `Propuesta.md`), métrica ancla (la cifra de la contribución que define el
