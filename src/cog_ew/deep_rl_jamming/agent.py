@@ -8,6 +8,7 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 from torch import nn
+from torch.nn import functional as F
 
 
 class QNetwork(nn.Module):
@@ -93,3 +94,62 @@ class ReplayBuffer:
 
     def __len__(self) -> int:
         return self._size
+
+
+class D3QNAgent:
+    def __init__(
+        self,
+        obs_dim: int,
+        n_actions: int,
+        config: D3QNConfig,
+        device: str,
+        rng: np.random.Generator,
+    ) -> None:
+        self.config = config
+        self.n_actions = n_actions
+        self.device = torch.device(device)
+        self.rng = rng
+        self.online_net = QNetwork(obs_dim, n_actions, config.hidden).to(self.device)
+        self.target_net = QNetwork(obs_dim, n_actions, config.hidden).to(self.device)
+        self.target_net.load_state_dict(self.online_net.state_dict())
+        self.optimizer = torch.optim.Adam(self.online_net.parameters(), lr=config.lr)
+        self._updates = 0
+
+    @torch.no_grad()
+    def select_action(self, obs: NDArray[np.float32], epsilon: float) -> int:
+        if self.rng.random() < epsilon:
+            return int(self.rng.integers(self.n_actions))
+        tensor = torch.as_tensor(obs, dtype=torch.float32, device=self.device).unsqueeze(0)
+        return int(torch.argmax(self.online_net(tensor), dim=1).item())
+
+    def update(
+        self,
+        batch: tuple[
+            NDArray[np.float32],
+            NDArray[np.int64],
+            NDArray[np.float32],
+            NDArray[np.float32],
+            NDArray[np.float32],
+        ],
+    ) -> float:
+        obs, actions, rewards, next_obs, dones = batch
+        obs_t = torch.as_tensor(obs, dtype=torch.float32, device=self.device)
+        next_t = torch.as_tensor(next_obs, dtype=torch.float32, device=self.device)
+        actions_t = torch.as_tensor(actions, dtype=torch.int64, device=self.device)
+        rewards_t = torch.as_tensor(rewards, dtype=torch.float32, device=self.device)
+        dones_t = torch.as_tensor(dones, dtype=torch.float32, device=self.device)
+
+        q = self.online_net(obs_t).gather(1, actions_t.unsqueeze(1)).squeeze(1)
+        with torch.no_grad():
+            next_actions = torch.argmax(self.online_net(next_t), dim=1)
+            next_q = self.target_net(next_t).gather(1, next_actions.unsqueeze(1)).squeeze(1)
+            target = rewards_t + self.config.gamma * (1.0 - dones_t) * next_q
+        loss = F.smooth_l1_loss(q, target)
+        self.optimizer.zero_grad()
+        loss.backward()  # type: ignore[no-untyped-call]
+        self.optimizer.step()
+
+        self._updates += 1
+        if self._updates % self.config.target_sync == 0:
+            self.target_net.load_state_dict(self.online_net.state_dict())
+        return float(loss.item())
