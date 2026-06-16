@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeVar
 
 import h5py
 import kagglehub
@@ -144,10 +145,13 @@ class RadioML2018Dataset(Dataset[tuple[torch.Tensor, int, int]]):
         return self._x[index], int(self._labels[index]), int(self._snr[index])
 
 
+_SampleT = TypeVar("_SampleT")
+
+
 def split_dataset(
-    dataset: Dataset[tuple[torch.Tensor, int, int]],
+    dataset: Dataset[_SampleT],
     fractions: Sequence[float],
     seed: int,
-) -> list[Subset[tuple[torch.Tensor, int, int]]]:
+) -> list[Subset[_SampleT]]:
     generator = torch.Generator().manual_seed(seed)
     return random_split(dataset, list(fractions), generator=generator)
