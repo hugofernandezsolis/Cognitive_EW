@@ -12,6 +12,7 @@ description = "Cognitive Electronic Warfare System — Deep RL para jamming adap
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "gymnasium>=1.0.0",
     "h5py>=3.16.0",
     "kagglehub>=1.0.2",
     "numpy>=2.4.6",
