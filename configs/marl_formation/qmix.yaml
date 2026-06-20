@@ -1,0 +1,23 @@
+env_config: configs/marl_formation/env.yaml
+agent:
+  hidden: 64
+  mixer_embed_dim: 32
+  hypernet_hidden: 64
+  gamma: 0.99
+  lr: 0.0005
+  batch_episodes: 8
+  buffer_episodes: 2000
+  target_sync: 200
+  epsilon_start: 1.0
+  epsilon_end: 0.05
+  epsilon_decay_steps: 2000
+  learning_starts_episodes: 32
+  double_q: true
+  grad_clip: 10.0
+total_episodes: 4000
+eval_episodes: 50
+eval_every: 200
+device: cpu
+seed: 0
+out_dir: runs/marl_formation
+tracking: false
