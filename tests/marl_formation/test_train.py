@@ -98,3 +98,40 @@ def test_train_is_deterministic_by_seed(tmp_path):
     a = train(_smoke_config(TrainConfig.from_yaml(CONFIG), tmp_path / "a"))
     b = train(_smoke_config(TrainConfig.from_yaml(CONFIG), tmp_path / "b"))
     assert a["win_rate_history"] == b["win_rate_history"]
+
+
+def test_train_config_regime_defaults_to_qmix():
+    config = TrainConfig.from_yaml("configs/marl_formation/qmix.yaml")
+    assert config.regime == "qmix"
+
+
+def test_train_config_iql_yaml_sets_regime():
+    config = TrainConfig.from_yaml("configs/marl_formation/iql.yaml")
+    assert config.regime == "iql"
+
+
+def _smoke(config: TrainConfig, out_dir) -> TrainConfig:
+    agent = replace(config.agent, learning_starts_episodes=2, batch_episodes=2)
+    return replace(
+        config,
+        agent=agent,
+        total_episodes=6,
+        eval_episodes=3,
+        eval_every=3,
+        out_dir=str(out_dir),
+    )
+
+
+def test_train_iql_regime_smoke(tmp_path):
+    config = _smoke(TrainConfig.from_yaml("configs/marl_formation/iql.yaml"), tmp_path)
+    result = train(config)
+    assert 0.0 <= result["final"]["win_rate"] <= 1.0
+    assert (tmp_path / "best.pt").exists()
+    assert (tmp_path / "metrics.json").exists()
+
+
+def test_train_iql_is_deterministic_by_seed(tmp_path):
+    base = TrainConfig.from_yaml("configs/marl_formation/iql.yaml")
+    a = train(_smoke(base, tmp_path / "a"))
+    b = train(_smoke(base, tmp_path / "b"))
+    assert a["win_rate_history"] == b["win_rate_history"]

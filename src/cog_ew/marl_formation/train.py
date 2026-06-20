@@ -16,7 +16,7 @@ import torch
 import yaml
 from numpy.typing import NDArray
 
-from cog_ew.marl_formation.agents import AgentRNN, QMIXConfig, QMIXLearner
+from cog_ew.marl_formation.agents import AgentRNN, IQLLearner, QMIXConfig, QMIXLearner
 from cog_ew.marl_formation.env import IADSEnvConfig, IADSFormationEnv
 from cog_ew.temporal_cnn_elint.metrics import profile_latency
 
@@ -99,6 +99,7 @@ class TrainConfig:
     seed: int = 0
     out_dir: str = "runs/marl_formation"
     tracking: bool = False
+    regime: str = "qmix"
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> TrainConfig:
@@ -107,6 +108,22 @@ class TrainConfig:
         env = IADSEnvConfig.from_yaml(raw.pop("env_config"))
         agent = QMIXConfig(**raw.pop("agent"))
         return cls(env=env, agent=agent, **raw)
+
+
+def _build_learner(
+    regime: str,
+    env: IADSFormationEnv,
+    config: QMIXConfig,
+    device: str,
+    rng: np.random.Generator,
+) -> QMIXLearner | IQLLearner:
+    if regime == "qmix":
+        return QMIXLearner(
+            env.obs_dim, env.action_dim, env.n_agents, env.state_dim, config, device, rng
+        )
+    if regime == "iql":
+        return IQLLearner(env.obs_dim, env.action_dim, env.n_agents, config, device, rng)
+    raise ValueError(f"unknown regime: {regime!r}")
 
 
 class _AgentForward(torch.nn.Module):
@@ -149,7 +166,7 @@ def _run_metadata(config: TrainConfig) -> dict[str, Any]:
 
 
 def _rollout(
-    env: IADSFormationEnv, learner: QMIXLearner, epsilon: float, seed: int | None
+    env: IADSFormationEnv, learner: QMIXLearner | IQLLearner, epsilon: float, seed: int | None
 ) -> tuple[_EpisodeData, dict[str, Any]]:
     horizon = env.config.horizon_t
     obs_buf = np.zeros((horizon, env.n_agents, env.obs_dim), dtype=np.float32)
@@ -187,7 +204,7 @@ def _rollout(
 
 
 def _evaluate(
-    env: IADSFormationEnv, learner: QMIXLearner, n_episodes: int, seed: int
+    env: IADSFormationEnv, learner: QMIXLearner | IQLLearner, n_episodes: int, seed: int
 ) -> tuple[float, float]:
     wins = 0
     suppressed_sum = 0.0
@@ -211,15 +228,7 @@ def train(config: TrainConfig) -> dict[str, Any]:
 
     env = IADSFormationEnv(config.env)
     eval_env = IADSFormationEnv(config.env)
-    learner = QMIXLearner(
-        env.obs_dim,
-        env.action_dim,
-        env.n_agents,
-        env.state_dim,
-        config.agent,
-        config.device,
-        rng,
-    )
+    learner = _build_learner(config.regime, env, config.agent, config.device, rng)
     buffer = EpisodeReplayBuffer(
         config.agent.buffer_episodes,
         config.env.horizon_t,
