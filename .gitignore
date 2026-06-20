@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# cog_ew: artefactos de entrenamiento y tooling local
+runs/
+cog_ew_runs/
+.claude/

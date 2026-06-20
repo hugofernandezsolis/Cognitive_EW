@@ -25,7 +25,7 @@ ficha.
 | **Modelo 2** — Temporal CNN ELINT | `src/cog_ew/temporal_cnn_elint/` | ✅ Completo, mergeado |
 | **Modelo 5** — Baseline EW convencional | `src/cog_ew/ew_library/` | ✅ Completo, mergeado |
 | **Modelo 1** — Deep RL jamming | `src/cog_ew/deep_rl_jamming/` | ✅ Completo (A entorno + B agente/train + C comparación), mergeado |
-| **Modelo 3** — MARL en formación | `src/cog_ew/marl_formation/` | 🔄 Entorno IADS (A) ✅ mergeado; agentes QMIX+train (B) y comparación (C) pendientes |
+| **Modelo 3** — MARL en formación | `src/cog_ew/marl_formation/` | 🔄 A entorno IADS ✅ mergeado; B agentes QMIX+train ✅ implementado en rama (pendiente review final + merge); C comparación 🔄 rehaciéndose vía spec→plan→TDD |
 | **Modelo 4** — GAN señales sintéticas | `src/cog_ew/gan_signals/` | 📭 Stub |
 
 > **Nota sobre la capa IQ (RadioML):** es **infraestructura compartida**, no específica de un modelo. La
@@ -77,8 +77,14 @@ sección de `estado-del-arte.md` con el hueco/oportunidad concreto.
   emisores/agentes.
 - **Dependencias:** el **Modelo 1** (reutiliza su entorno radar/jamming y sus primitivas de agente, escaladas
   a multi-agente).
+- **Estado:** en curso en la rama `feat/marl-formation-qmix` (sin mergear todavía). Sub-pieza A (entorno IADS
+  multi-agente) ✅ mergeada. Sub-pieza B (slice entrenable CTDE/QMIX: agentes, replay por episodios,
+  entrenamiento y perfilado de latencia) ✅ implementada en rama, pendiente de review final + merge. Sub-pieza
+  C (comparación coordinado vs. actuación independiente, ancla +45 %) 🔄 rehaciéndose por el ciclo
+  brainstorm→spec→plan→TDD. La **ejecución real** en Colab (`/experiment-run`) para reportar el +45 % final
+  llega en la Fase 6.
 - **Estado del arte:** `estado-del-arte.md` §3 (MA-CJD jamming cooperativo, QMIX en enjambres; hueco §3.4).
-- **Entregable:** `src/cog_ew/marl_formation/{env,agents,train}.py` + tests (entorno IADS, reward de
+- **Entregable:** `src/cog_ew/marl_formation/{env,agents,train,compare}.py` + tests (entorno IADS, reward de
   supresión coordinada).
 
 ### Modelo 4 — GAN para señales de amenaza sintéticas
@@ -138,12 +144,13 @@ Capa de datos (IQ + PDW) ✅
 | **1** | Modelo 2 — Temporal CNN ELINT (slice entrenable) | ✅ Hecho |
 | **2** | Modelo 5 — Baseline EW convencional | ✅ Hecho |
 | **3** | Modelo 1 — Deep RL jamming (entorno + agente + entrenamiento) | ✅ Hecho (A entorno + B agente/train + C comparación) |
-| **4** | Modelo 3 — MARL en formación | 🔄 En curso (A entorno ✅; B agentes QMIX+train ⏭️; C comparación ⬜) |
-| **5** | Modelo 4 — GAN señales sintéticas | ⬜ Pendiente |
+| **4** | Modelo 3 — MARL en formación (entorno + QMIX/train + comparación) | 🔄 En curso (A entorno ✅ mergeado; B QMIX/train ✅ en rama, pendiente review+merge; C comparación 🔄 rehaciéndose) |
+| **5** | Modelo 4 — GAN señales sintéticas | 📭 Stub / pendiente de spec + plan + implementación |
 | **6** | Evaluación transversal (anclas Q1) + ejecución real en Colab + redacción del paper | ⬜ Pendiente |
 
-La **ejecución real de los entrenamientos** (Modelos 1–4) y la del Modelo 2 ya implementado se realiza en la
-Fase 6 sobre Colab/Kaggle vía la skill `/experiment-run`, que es la que produce las cifras finales para el paper.
+La **ejecución real de los entrenamientos** de los modelos ya implementados (Modelos 1, 2 y 3) se realiza en
+la Fase 6 sobre Colab/Kaggle vía la skill `/experiment-run`, que es la que produce las cifras finales para el
+paper. El Modelo 4 entra en esa fase cuando deje de ser stub y tenga su slice entrenable.
 
 ## 6. Flujo de trabajo por modelo
 
