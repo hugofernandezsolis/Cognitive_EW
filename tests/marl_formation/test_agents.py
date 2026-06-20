@@ -140,3 +140,36 @@ def test_iql_select_actions_greedy_is_deterministic():
 def test_iql_has_no_mixer():
     learner = _iql()
     assert not hasattr(learner, "mixer")
+
+
+def _iql_batch(B=2, T=5, N=4, obs_dim=24, state_dim=28, action_dim=48):
+    rng = np.random.default_rng(2)
+    obs = rng.standard_normal((B, T, N, obs_dim)).astype(np.float32)
+    actions = rng.integers(0, action_dim, size=(B, T, N)).astype(np.int64)
+    rewards = rng.standard_normal((B, T)).astype(np.float32)
+    states = rng.standard_normal((B, T, state_dim)).astype(np.float32)
+    dones = np.zeros((B, T), dtype=np.float32)
+    dones[:, -1] = 1.0
+    filled = np.ones((B, T), dtype=np.float32)
+    return obs, actions, rewards, states, dones, filled
+
+
+def test_iql_update_returns_finite_loss_and_changes_params():
+    learner = _iql()
+    before = next(learner.agent.parameters()).clone()
+    loss = learner.update(_iql_batch())
+    after = next(learner.agent.parameters())
+    assert np.isfinite(loss)
+    assert not torch.allclose(before, after)
+
+
+def test_iql_update_syncs_target_after_interval():
+    from cog_ew.marl_formation.agents import IQLLearner, QMIXConfig
+
+    config = QMIXConfig(hidden=16, target_sync=1)
+    learner = IQLLearner(24, 48, 4, config, "cpu", np.random.default_rng(0))
+    learner.update(_iql_batch())
+    for online, target in zip(
+        learner.agent.parameters(), learner.target_agent.parameters(), strict=True
+    ):
+        assert torch.allclose(online, target)
