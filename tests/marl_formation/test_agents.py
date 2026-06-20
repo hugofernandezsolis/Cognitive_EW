@@ -1,6 +1,6 @@
 import torch
 
-from cog_ew.marl_formation.agents import AgentRNN
+from cog_ew.marl_formation.agents import AgentRNN, QMixer
 
 
 def test_agent_rnn_forward_shapes():
@@ -21,3 +21,21 @@ def test_agent_rnn_is_deterministic_by_seed():
     qa, _ = a(obs, a.init_hidden(3))
     qb, _ = b(obs, b.init_hidden(3))
     assert torch.allclose(qa, qb)
+
+
+def test_qmixer_output_shape():
+    mixer = QMixer(n_agents=4, state_dim=28, embed_dim=16, hypernet_hidden=32)
+    agent_qs = torch.zeros(7, 4)
+    state = torch.zeros(7, 28)
+    q_tot = mixer(agent_qs, state)
+    assert q_tot.shape == (7, 1)
+
+
+def test_qmixer_is_monotonic_in_agent_qs():
+    torch.manual_seed(0)
+    mixer = QMixer(4, 28, 16, 32)
+    agent_qs = torch.randn(3, 4, requires_grad=True)
+    state = torch.randn(3, 28)
+    q_tot = mixer(agent_qs, state).sum()
+    grad = torch.autograd.grad(q_tot, agent_qs)[0]
+    assert torch.all(grad >= -1e-6)
