@@ -1,6 +1,7 @@
+import numpy as np
 import torch
 
-from cog_ew.marl_formation.agents import AgentRNN, QMixer
+from cog_ew.marl_formation.agents import AgentRNN, QMIXConfig, QMixer, QMIXLearner
 
 
 def test_agent_rnn_forward_shapes():
@@ -39,3 +40,39 @@ def test_qmixer_is_monotonic_in_agent_qs():
     q_tot = mixer(agent_qs, state).sum()
     grad = torch.autograd.grad(q_tot, agent_qs)[0]
     assert torch.all(grad >= -1e-6)
+
+
+def _learner() -> QMIXLearner:
+    return QMIXLearner(
+        obs_dim=24,
+        action_dim=48,
+        n_agents=4,
+        state_dim=28,
+        config=QMIXConfig(hidden=16, mixer_embed_dim=8, hypernet_hidden=16),
+        device="cpu",
+        rng=np.random.default_rng(0),
+    )
+
+
+def test_select_actions_returns_valid_dict():
+    learner = _learner()
+    obs = {a: np.zeros(24, dtype=np.float32) for a in range(4)}
+    actions, hidden = learner.select_actions(obs, learner.init_hidden(), epsilon=0.0)
+    assert set(actions) == {0, 1, 2, 3}
+    assert all(0 <= actions[a] < 48 for a in range(4))
+    assert set(hidden) == {0, 1, 2, 3}
+
+
+def test_select_actions_greedy_is_deterministic():
+    learner = _learner()
+    obs = {a: np.ones(24, dtype=np.float32) for a in range(4)}
+    a1, _ = learner.select_actions(obs, learner.init_hidden(), epsilon=0.0)
+    a2, _ = learner.select_actions(obs, learner.init_hidden(), epsilon=0.0)
+    assert a1 == a2
+
+
+def test_select_actions_full_epsilon_explores():
+    learner = _learner()
+    obs = {a: np.zeros(24, dtype=np.float32) for a in range(4)}
+    actions, _ = learner.select_actions(obs, learner.init_hidden(), epsilon=1.0)
+    assert all(0 <= actions[a] < 48 for a in range(4))
