@@ -1,6 +1,6 @@
 # Roadmap de desarrollo — Cognitive Electronic Warfare System
 
-**Última actualización:** 2026-06-16
+**Última actualización:** 2026-06-20
 
 ## 1. Propósito y relación con `Propuesta.md`
 
@@ -25,7 +25,7 @@ ficha.
 | **Modelo 2** — Temporal CNN ELINT | `src/cog_ew/temporal_cnn_elint/` | ✅ Completo, mergeado |
 | **Modelo 5** — Baseline EW convencional | `src/cog_ew/ew_library/` | ✅ Completo, mergeado |
 | **Modelo 1** — Deep RL jamming | `src/cog_ew/deep_rl_jamming/` | ✅ Completo (A entorno + B agente/train + C comparación), mergeado |
-| **Modelo 3** — MARL en formación | `src/cog_ew/marl_formation/` | 📭 Stub |
+| **Modelo 3** — MARL en formación | `src/cog_ew/marl_formation/` | 🔄 Entorno IADS (A) ✅ mergeado; agentes QMIX+train (B) y comparación (C) pendientes |
 | **Modelo 4** — GAN señales sintéticas | `src/cog_ew/gan_signals/` | 📭 Stub |
 
 > **Nota sobre la capa IQ (RadioML):** es **infraestructura compartida**, no específica de un modelo. La
@@ -138,7 +138,7 @@ Capa de datos (IQ + PDW) ✅
 | **1** | Modelo 2 — Temporal CNN ELINT (slice entrenable) | ✅ Hecho |
 | **2** | Modelo 5 — Baseline EW convencional | ✅ Hecho |
 | **3** | Modelo 1 — Deep RL jamming (entorno + agente + entrenamiento) | ✅ Hecho (A entorno + B agente/train + C comparación) |
-| **4** | Modelo 3 — MARL en formación | ⏭️ Siguiente |
+| **4** | Modelo 3 — MARL en formación | 🔄 En curso (A entorno ✅; B agentes QMIX+train ⏭️; C comparación ⬜) |
 | **5** | Modelo 4 — GAN señales sintéticas | ⬜ Pendiente |
 | **6** | Evaluación transversal (anclas Q1) + ejecución real en Colab + redacción del paper | ⬜ Pendiente |
 
