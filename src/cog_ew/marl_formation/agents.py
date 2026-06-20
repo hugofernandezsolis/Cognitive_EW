@@ -80,7 +80,41 @@ class QMIXConfig:
     grad_clip: float = 10.0
 
 
-class QMIXLearner:
+class _SharedParamLearner:
+    """Ejecución descentralizada compartida: AgentRNN por agente + ε-greedy."""
+
+    agent: AgentRNN
+    n_agents: int
+    action_dim: int
+    rng: np.random.Generator
+    device: torch.device
+
+    def init_hidden(self) -> dict[int, torch.Tensor]:
+        return {a: self.agent.init_hidden(1) for a in range(self.n_agents)}
+
+    @torch.no_grad()
+    def select_actions(
+        self,
+        obs_dict: dict[int, NDArray[np.float32]],
+        hidden: dict[int, torch.Tensor],
+        epsilon: float,
+    ) -> tuple[dict[int, int], dict[int, torch.Tensor]]:
+        actions: dict[int, int] = {}
+        new_hidden: dict[int, torch.Tensor] = {}
+        for a in range(self.n_agents):
+            obs_t = torch.as_tensor(obs_dict[a], dtype=torch.float32, device=self.device).unsqueeze(
+                0
+            )
+            q, h = self.agent(obs_t, hidden[a])
+            new_hidden[a] = h
+            if self.rng.random() < epsilon:
+                actions[a] = int(self.rng.integers(self.action_dim))
+            else:
+                actions[a] = int(torch.argmax(q, dim=1).item())
+        return actions, new_hidden
+
+
+class QMIXLearner(_SharedParamLearner):
     def __init__(
         self,
         obs_dim: int,
@@ -109,9 +143,6 @@ class QMIXLearner:
         params = list(self.agent.parameters()) + list(self.mixer.parameters())
         self.optimizer = torch.optim.Adam(params, lr=config.lr)
         self._updates = 0
-
-    def init_hidden(self) -> dict[int, torch.Tensor]:
-        return {a: self.agent.init_hidden(1) for a in range(self.n_agents)}
 
     def _mix(self, mixer: QMixer, agent_qs: torch.Tensor, states: torch.Tensor) -> torch.Tensor:
         batch, horizon, _ = agent_qs.shape
@@ -181,23 +212,24 @@ class QMIXLearner:
             self.target_mixer.load_state_dict(self.mixer.state_dict())
         return float(loss.item())
 
-    @torch.no_grad()
-    def select_actions(
+
+class IQLLearner(_SharedParamLearner):
+    def __init__(
         self,
-        obs_dict: dict[int, NDArray[np.float32]],
-        hidden: dict[int, torch.Tensor],
-        epsilon: float,
-    ) -> tuple[dict[int, int], dict[int, torch.Tensor]]:
-        actions: dict[int, int] = {}
-        new_hidden: dict[int, torch.Tensor] = {}
-        for a in range(self.n_agents):
-            obs_t = torch.as_tensor(obs_dict[a], dtype=torch.float32, device=self.device).unsqueeze(
-                0
-            )
-            q, h = self.agent(obs_t, hidden[a])
-            new_hidden[a] = h
-            if self.rng.random() < epsilon:
-                actions[a] = int(self.rng.integers(self.action_dim))
-            else:
-                actions[a] = int(torch.argmax(q, dim=1).item())
-        return actions, new_hidden
+        obs_dim: int,
+        action_dim: int,
+        n_agents: int,
+        config: QMIXConfig,
+        device: str,
+        rng: np.random.Generator,
+    ) -> None:
+        self.config = config
+        self.action_dim = action_dim
+        self.n_agents = n_agents
+        self.device = torch.device(device)
+        self.rng = rng
+        self.agent = AgentRNN(obs_dim, action_dim, config.hidden).to(self.device)
+        self.target_agent = AgentRNN(obs_dim, action_dim, config.hidden).to(self.device)
+        self.target_agent.load_state_dict(self.agent.state_dict())
+        self.optimizer = torch.optim.Adam(self.agent.parameters(), lr=config.lr)
+        self._updates = 0

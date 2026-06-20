@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from cog_ew.marl_formation.agents import AgentRNN, QMIXConfig, QMixer, QMIXLearner
+from cog_ew.marl_formation.agents import AgentRNN, IQLLearner, QMIXConfig, QMixer, QMIXLearner
 
 
 def test_agent_rnn_forward_shapes():
@@ -107,3 +107,36 @@ def test_update_syncs_target_after_interval():
         learner.agent.parameters(), learner.target_agent.parameters(), strict=True
     ):
         assert torch.allclose(online, target)
+
+
+def _iql() -> IQLLearner:
+    return IQLLearner(
+        obs_dim=24,
+        action_dim=48,
+        n_agents=4,
+        config=QMIXConfig(hidden=16),
+        device="cpu",
+        rng=np.random.default_rng(0),
+    )
+
+
+def test_iql_select_actions_returns_valid_dict():
+    learner = _iql()
+    obs = {a: np.zeros(24, dtype=np.float32) for a in range(4)}
+    actions, hidden = learner.select_actions(obs, learner.init_hidden(), epsilon=0.0)
+    assert set(actions) == {0, 1, 2, 3}
+    assert all(0 <= actions[a] < 48 for a in range(4))
+    assert set(hidden) == {0, 1, 2, 3}
+
+
+def test_iql_select_actions_greedy_is_deterministic():
+    learner = _iql()
+    obs = {a: np.ones(24, dtype=np.float32) for a in range(4)}
+    a1, _ = learner.select_actions(obs, learner.init_hidden(), epsilon=0.0)
+    a2, _ = learner.select_actions(obs, learner.init_hidden(), epsilon=0.0)
+    assert a1 == a2
+
+
+def test_iql_has_no_mixer():
+    learner = _iql()
+    assert not hasattr(learner, "mixer")
