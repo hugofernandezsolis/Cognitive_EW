@@ -120,11 +120,49 @@ def train_deep_rl_jamming(
     return {"model": "deep_rl_jamming", "out_dir": str(out_dir), "result": result}
 
 
+def train_marl_formation(
+    *,
+    device: str,
+    run_root: Path,
+    quick: bool,
+) -> dict[str, Any]:
+    from cog_ew.marl_formation.train import TrainConfig, train
+
+    config_path = Path("configs/marl_formation/qmix.yaml")
+    config = TrainConfig.from_yaml(config_path)
+    out_dir = run_root / "marl_formation" / _timestamp()
+    config.device = device
+    config.out_dir = str(out_dir)
+
+    if quick:
+        config.env = replace(config.env, horizon_t=8)
+        config.total_episodes = 6
+        config.eval_every = 3
+        config.eval_episodes = 3
+        config.agent = replace(
+            config.agent,
+            hidden=16,
+            mixer_embed_dim=8,
+            hypernet_hidden=16,
+            buffer_episodes=8,
+            batch_episodes=2,
+            learning_starts_episodes=2,
+            epsilon_decay_steps=4,
+            target_sync=2,
+        )
+
+    _copy_config(config_path, out_dir)
+    print(f"[MARL Formation QMIX] device={config.device} out_dir={config.out_dir}")
+    result = train(config)
+    _write_summary(out_dir / "result.json", result)
+    return {"model": "marl_formation", "out_dir": str(out_dir), "result": result}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train Cognitive EW models on Google Colab.")
     parser.add_argument(
         "--model",
-        choices=("temporal_cnn", "deep_rl_jamming", "all"),
+        choices=("temporal_cnn", "deep_rl_jamming", "marl_formation", "all"),
         default="all",
         help="Model to train.",
     )
@@ -168,6 +206,8 @@ def main() -> None:
         results.append(train_temporal_cnn(device=device, run_root=run_root, quick=args.quick))
     if args.model in {"deep_rl_jamming", "all"}:
         results.append(train_deep_rl_jamming(device=device, run_root=run_root, quick=args.quick))
+    if args.model in {"marl_formation", "all"}:
+        results.append(train_marl_formation(device=device, run_root=run_root, quick=args.quick))
 
     summary_path = run_root / f"summary_{_timestamp()}.json"
     _write_summary(summary_path, {"device": device, "quick": args.quick, "runs": results})
