@@ -1,0 +1,11 @@
+library_path: configs/temporal_cnn_elint/emitters.yaml
+emitters: null
+modes: null
+window: 64
+n_pulses: 256
+n_trains: 16
+normalize: true
+noise_std: 0.02
+drop_prob: 0.02
+spurious_prob: 0.01
+seed: 0
