@@ -1,3 +1,7 @@
+import json
+
+import h5py
+import numpy as np
 import torch
 
 from cog_ew.data.pdw_dataset import PDWConfig
@@ -7,8 +11,54 @@ from cog_ew.gan_signals.robustness import (
     _classifier_loss,
     _fit_classifier,
     evaluate_type_accuracy,
+    run_robustness_experiment,
 )
 from cog_ew.temporal_cnn_elint.model import TemporalCNN, TemporalCNNConfig
+
+
+def _tiny_robustness_config(tmp_path) -> RobustnessConfig:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    synth = tmp_path / "s.h5"
+    n = 24
+    with h5py.File(synth, "w") as fh:
+        fh.create_dataset("X", data=np.random.rand(n, 10, 64).astype(np.float32))
+        fh.create_dataset("source_a", data=np.repeat([6, 7], n // 2).astype(np.int64))
+        fh.create_dataset("is_known", data=np.ones(n, dtype=bool))
+    pdw = PDWConfig(
+        library_path="configs/temporal_cnn_elint/emitters.yaml", n_trains=2, n_pulses=256, window=64
+    )
+    return RobustnessConfig(
+        synthetic_path=str(synth),
+        held_out=("LPI-FMCW", "LPI-polyphase"),
+        model=TemporalCNNConfig(hidden=8, dilations=(1,), dropout=0.0),
+        pdw=pdw,
+        epochs=1,
+        batch_size=16,
+        seed=0,
+        device="cpu",
+        out_dir=str(tmp_path / "run"),
+    )
+
+
+def test_run_robustness_experiment_reports_delta(tmp_path):
+    config = _tiny_robustness_config(tmp_path)
+    result = run_robustness_experiment(config)
+    assert set(result) == {"baseline", "augmented", "delta", "relative_improvement", "global"}
+    assert result["delta"] == result["augmented"] - result["baseline"]
+    base = result["baseline"]
+    expected_rel = (result["augmented"] - base) / base if base > 0 else float("inf")
+    assert result["relative_improvement"] == expected_rel
+    assert set(result["global"]) == {"baseline", "augmented"}
+    out = tmp_path / "run"
+    assert (out / "run_meta.json").is_file()
+    assert json.loads((out / "metrics.json").read_text())["delta"] == result["delta"]
+
+
+def test_run_robustness_experiment_is_reproducible(tmp_path):
+    r1 = run_robustness_experiment(_tiny_robustness_config(tmp_path / "a"))
+    r2 = run_robustness_experiment(_tiny_robustness_config(tmp_path / "b"))
+    assert r1["baseline"] == r2["baseline"]
+    assert r1["augmented"] == r2["augmented"]
 
 
 def test_robustness_config_from_yaml():

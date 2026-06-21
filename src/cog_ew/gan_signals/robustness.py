@@ -2,17 +2,26 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import hashlib
+import json
+import platform
+import random
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
+import h5py
+import numpy as np
 import torch
 import yaml
 from torch.nn import functional as F
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import ConcatDataset, DataLoader, Dataset
 
-from cog_ew.data.pdw_dataset import PDWConfig
-from cog_ew.temporal_cnn_elint.metrics import macro_accuracy
+from cog_ew.data.loaders import split_dataset
+from cog_ew.data.pdw_dataset import PDWConfig, PDWSyntheticDataset
+from cog_ew.data.pdw_library import EmitterLibrary
+from cog_ew.data.synthetic_loader import SyntheticPDWDataset
+from cog_ew.temporal_cnn_elint.metrics import macro_accuracy, profile_latency
 from cog_ew.temporal_cnn_elint.model import TemporalCNN, TemporalCNNConfig
 
 
@@ -129,3 +138,98 @@ def _fit_classifier(
             best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
     model.load_state_dict(best_state)
     return model
+
+
+def _set_seeds(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+
+def _file_sha256(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def run_robustness_experiment(config: RobustnessConfig) -> dict[str, Any]:
+    """Train baseline and augmented classifiers; compare macro type accuracy on held-out emitters.
+
+    The only difference between baseline and augmented is that the augmented training set
+    is extended with synthetic signals from the held-out emitters (produced by the GAN).
+    Both fits start from the same seed so any accuracy difference is attributable to the data.
+    """
+    library = EmitterLibrary.from_yaml(config.pdw.library_path)
+    names = library.emitter_names()
+    held_out_ids = tuple(names.index(n) for n in config.held_out)
+    catalogued = tuple(n for n in names if n not in config.held_out)
+
+    cat_ds = PDWSyntheticDataset(replace(config.pdw, emitters=catalogued))
+    train_ds, val_ds = split_dataset(cat_ds, (0.85, 0.15), config.seed)
+    held_ds = PDWSyntheticDataset(replace(config.pdw, emitters=config.held_out))
+
+    aug_emitters = held_out_ids if config.augment_held_out_only else None
+    synth_ds = SyntheticPDWDataset(config.synthetic_path, emitters=aug_emitters, known_only=True)
+
+    n_types = config.model.n_types
+    fit_kwargs: dict[str, Any] = dict(
+        epochs=config.epochs,
+        batch_size=config.batch_size,
+        lr=config.lr,
+        weight_decay=config.weight_decay,
+        device=config.device,
+    )
+
+    _set_seeds(config.seed)
+    base_model = _fit_classifier(config.model, train_ds, val_ds, **fit_kwargs)
+    base_acc = evaluate_type_accuracy(base_model, held_ds, n_types, config.device)
+
+    _set_seeds(config.seed)
+    aug_model = _fit_classifier(
+        config.model, ConcatDataset([train_ds, synth_ds]), val_ds, **fit_kwargs
+    )
+    aug_acc = evaluate_type_accuracy(aug_model, held_ds, n_types, config.device)
+
+    global_eval: Dataset[Any] = ConcatDataset([val_ds, held_ds])
+    delta = aug_acc - base_acc
+    rel = delta / base_acc if base_acc > 0 else float("inf")
+    metrics: dict[str, Any] = {
+        "baseline": base_acc,
+        "augmented": aug_acc,
+        "delta": delta,
+        "relative_improvement": rel,
+        "global": {
+            "baseline": evaluate_type_accuracy(base_model, global_eval, n_types, config.device),
+            "augmented": evaluate_type_accuracy(aug_model, global_eval, n_types, config.device),
+        },
+    }
+
+    out_dir = Path(config.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    sample = next(iter(DataLoader(held_ds, batch_size=1)))[0]
+    mean_ms, p99_ms = profile_latency(
+        aug_model, sample, n_warmup=5, n_iter=50, device=config.device
+    )
+    # Latency goes to disk only — not in the returned dict
+    on_disk = {**metrics, "latency_mean_ms": mean_ms, "latency_p99_ms": p99_ms}
+    (out_dir / "metrics.json").write_text(json.dumps(on_disk, indent=2))
+
+    hyperparameters = asdict(config)
+    blob = json.dumps(hyperparameters, sort_keys=True).encode()
+    run_meta: dict[str, Any] = {
+        "seed": config.seed,
+        "hyperparameters": hyperparameters,
+        "config_hash": hashlib.sha256(blob).hexdigest(),
+        "synthetic_hash": _file_sha256(config.synthetic_path),
+        "dependencies": {
+            "python": platform.python_version(),
+            "torch": torch.__version__,
+            "numpy": np.__version__,
+            "h5py": h5py.__version__,
+        },
+    }
+    (out_dir / "run_meta.json").write_text(json.dumps(run_meta, indent=2))
+    return metrics
