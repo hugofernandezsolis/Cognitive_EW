@@ -80,6 +80,7 @@ def evaluate_type_accuracy(
     """Compute macro-accuracy of type head over a dataset."""
     dev = torch.device(device)
     model.eval()
+    model.to(dev)
     loader: DataLoader[Any] = DataLoader(dataset, batch_size=256)
     preds: list[torch.Tensor] = []
     targets: list[torch.Tensor] = []

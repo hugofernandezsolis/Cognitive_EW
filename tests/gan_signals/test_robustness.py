@@ -57,3 +57,18 @@ def test_evaluate_type_accuracy_in_unit_range(tmp_path):
     ds = SyntheticPDWDataset(path)
     acc = evaluate_type_accuracy(_tiny_model(), ds, n_types=8, device="cpu")
     assert 0.0 <= acc <= 1.0
+
+
+def test_evaluate_type_accuracy_moves_model_to_device(tmp_path):
+    import h5py
+    import numpy as np
+
+    path = tmp_path / "s.h5"
+    with h5py.File(path, "w") as fh:
+        fh.create_dataset("X", data=np.random.rand(8, 10, 64).astype(np.float32))
+        fh.create_dataset("source_a", data=np.full(8, 2, dtype=np.int64))
+        fh.create_dataset("is_known", data=np.ones(8, dtype=bool))
+    ds = SyntheticPDWDataset(path)
+    model = _tiny_model()
+    evaluate_type_accuracy(model, ds, n_types=8, device="cpu")
+    assert next(model.parameters()).device.type == "cpu"
