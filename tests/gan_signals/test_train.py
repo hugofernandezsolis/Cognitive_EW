@@ -1,5 +1,6 @@
 import copy
 import json
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -99,7 +100,7 @@ def test_generator_update_changes_generator_and_embedding():
     )
 
 
-def _tiny_config(tmp_path) -> WGANGPConfig:
+def _tiny_config(tmp_path: Path) -> WGANGPConfig:
     config = WGANGPConfig.from_yaml("configs/gan_signals/wgan_gp.yaml")
     config.pdw.n_trains = 2
     config.z_dim, config.e_dim, config.channels = 8, 4, 8

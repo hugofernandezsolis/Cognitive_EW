@@ -138,7 +138,8 @@ class _GeneratorForward(nn.Module):
         self.e = e
 
     def forward(self, z: torch.Tensor) -> torch.Tensor:
-        return self.generator(z, self.e)  # type: ignore[no-any-return]
+        out: torch.Tensor = self.generator(z, self.e)
+        return out
 
 
 def _cycle(loader: DataLoader[Any]) -> Iterator[Any]:
