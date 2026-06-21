@@ -42,7 +42,7 @@ def diversity(windows: torch.Tensor, type_ids: NDArray[np.int64]) -> dict[str, f
         - n_types: Number of distinct type IDs.
         - coverage: Fraction of type ID range covered (n_types / (max_type_id + 1)).
     """
-    mean_std = windows.std(dim=0).mean().item()
+    mean_std = windows.std(dim=0, correction=0).mean().item()
     codes = windows[:, 5:].argmax(dim=1)
     patterns = {tuple(row.tolist()) for row in codes}
     unique_types = {int(t) for t in type_ids.tolist()}

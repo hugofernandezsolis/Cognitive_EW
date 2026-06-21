@@ -39,3 +39,8 @@ def test_diversity_full_coverage_and_variety():
     assert out["mean_intersample_std"] > 0.0
     assert out["n_types"] == 3
     assert out["coverage"] == 1.0
+
+
+def test_diversity_single_sample_does_not_crash():
+    out = diversity(_valid_windows(1), np.array([0], dtype=np.int64))
+    assert out["mean_intersample_std"] == 0.0
