@@ -209,7 +209,7 @@ def run_robustness_experiment(config: RobustnessConfig) -> dict[str, Any]:
     out_dir = Path(config.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    sample = next(iter(DataLoader(held_ds, batch_size=1)))[0]
+    sample = held_ds[0][0].unsqueeze(0)
     mean_ms, p99_ms = profile_latency(
         aug_model, sample, n_warmup=5, n_iter=50, device=config.device
     )

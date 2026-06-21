@@ -20,6 +20,7 @@ def _tiny_robustness_config(tmp_path) -> RobustnessConfig:
     tmp_path.mkdir(parents=True, exist_ok=True)
     synth = tmp_path / "s.h5"
     n = 24
+    np.random.seed(0)
     with h5py.File(synth, "w") as fh:
         fh.create_dataset("X", data=np.random.rand(n, 10, 64).astype(np.float32))
         fh.create_dataset("source_a", data=np.repeat([6, 7], n // 2).astype(np.int64))
@@ -52,6 +53,9 @@ def test_run_robustness_experiment_reports_delta(tmp_path):
     out = tmp_path / "run"
     assert (out / "run_meta.json").is_file()
     assert json.loads((out / "metrics.json").read_text())["delta"] == result["delta"]
+    assert "latency_mean_ms" not in result
+    disk = json.loads((out / "metrics.json").read_text())
+    assert "latency_mean_ms" in disk
 
 
 def test_run_robustness_experiment_is_reproducible(tmp_path):
