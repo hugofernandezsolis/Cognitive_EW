@@ -4,11 +4,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
+import torch
 import yaml
+from torch.nn import functional as F
+from torch.utils.data import DataLoader, Dataset
 
 from cog_ew.data.pdw_dataset import PDWConfig
-from cog_ew.temporal_cnn_elint.model import TemporalCNNConfig
+from cog_ew.temporal_cnn_elint.metrics import macro_accuracy
+from cog_ew.temporal_cnn_elint.model import TemporalCNN, TemporalCNNConfig
 
 
 @dataclass
@@ -43,3 +48,43 @@ class RobustnessConfig:
             pdw=PDWConfig(**pdw_raw),
             **raw,
         )
+
+
+def _classifier_loss(
+    type_logits: torch.Tensor,
+    mode_logits: torch.Tensor,
+    y_type: torch.Tensor,
+    y_mode: torch.Tensor,
+) -> torch.Tensor:
+    """Compute combined type and mode classification loss.
+
+    Mode loss is computed only over rows with y_mode >= 0 (real signals).
+    Synthetic signals with y_mode == -1 do not contribute to mode loss or gradients.
+    """
+    type_loss = F.cross_entropy(type_logits, y_type)
+    valid = y_mode >= 0
+    if bool(valid.any()):
+        mode_loss = F.cross_entropy(mode_logits[valid], y_mode[valid])
+    else:
+        mode_loss = type_logits.new_zeros(())
+    return type_loss + mode_loss
+
+
+@torch.no_grad()
+def evaluate_type_accuracy(
+    model: TemporalCNN,
+    dataset: Dataset[Any],
+    n_types: int,
+    device: str,
+) -> float:
+    """Compute macro-accuracy of type head over a dataset."""
+    dev = torch.device(device)
+    model.eval()
+    loader: DataLoader[Any] = DataLoader(dataset, batch_size=256)
+    preds: list[torch.Tensor] = []
+    targets: list[torch.Tensor] = []
+    for x, y_type, _, _ in loader:
+        type_pred, _, _ = model.predict(x.to(dev))
+        preds.append(type_pred.cpu())
+        targets.append(y_type)
+    return macro_accuracy(torch.cat(preds), torch.cat(targets), n_types)
