@@ -103,10 +103,8 @@ class WGANGP:
     def critic_update(self, real_x: torch.Tensor, ids: torch.Tensor) -> float:
         real_x = real_x.to(self.device)
         e = self.embedding(ids.to(self.device)).detach()
-        self.generator.eval()
         with torch.no_grad():
             fake = self.generator(self._z(real_x.size(0)), e)
-        self.generator.train()
         real_score = self.critic(real_x, e).mean()
         fake_score = self.critic(fake, e).mean()
         gp = gradient_penalty(self.critic, real_x, fake, e)

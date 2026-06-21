@@ -72,11 +72,13 @@ def test_critic_update_changes_only_critic_params():
     real = torch.rand(6, 10, 64)
     ids = torch.randint(0, 8, (6,))
     before_c = copy.deepcopy(learner.critic.state_dict())
-    before_g = copy.deepcopy(learner.generator.state_dict())
+    before_g = {k: v.clone() for k, v in learner.generator.named_parameters()}
+    before_e = {k: v.clone() for k, v in learner.embedding.named_parameters()}
     loss = learner.critic_update(real, ids)
     assert np.isfinite(loss)
     assert any(not torch.allclose(before_c[k], v) for k, v in learner.critic.state_dict().items())
-    assert all(torch.allclose(before_g[k], v) for k, v in learner.generator.state_dict().items())
+    assert all(torch.allclose(before_g[k], v) for k, v in learner.generator.named_parameters())
+    assert all(torch.allclose(before_e[k], v) for k, v in learner.embedding.named_parameters())
 
 
 def test_generator_update_changes_generator_and_embedding():
