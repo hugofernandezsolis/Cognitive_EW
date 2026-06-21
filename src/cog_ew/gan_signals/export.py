@@ -100,6 +100,9 @@ def export_synthetic(config: ExportConfig) -> dict[str, Any]:
     out_path = Path(config.out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Compute checkpoint hash once, reuse in both HDF5 attrs and run_meta.
+    checkpoint_hash = _file_sha256(config.checkpoint)
+
     # Per-type budget for the validity buffer so total stays near n_real_compare.
     per_type_val = max(1, -(-config.n_real_compare // n_types))
     val_windows: list[torch.Tensor] = []
@@ -130,7 +133,7 @@ def export_synthetic(config: ExportConfig) -> dict[str, Any]:
 
         fh.attrs["n_types"] = n_types
         fh.attrs["samples_per_type"] = spt
-        fh.attrs["checkpoint_hash"] = _file_sha256(config.checkpoint)
+        fh.attrs["checkpoint_hash"] = checkpoint_hash
         fh.attrs["seed"] = config.seed
 
     val_gen = torch.cat(val_windows)
@@ -152,7 +155,7 @@ def export_synthetic(config: ExportConfig) -> dict[str, Any]:
         "seed": config.seed,
         "hyperparameters": hyperparameters,
         "config_hash": hashlib.sha256(blob).hexdigest(),
-        "checkpoint_hash": _file_sha256(config.checkpoint),
+        "checkpoint_hash": checkpoint_hash,
         "dependencies": {
             "python": platform.python_version(),
             "torch": torch.__version__,
