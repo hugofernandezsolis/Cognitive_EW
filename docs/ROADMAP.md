@@ -26,7 +26,7 @@ ficha.
 | **Modelo 5** — Baseline EW convencional | `src/cog_ew/ew_library/` | ✅ Completo, mergeado |
 | **Modelo 1** — Deep RL jamming | `src/cog_ew/deep_rl_jamming/` | ✅ Completo (A entorno + B agente/train + C comparación), mergeado |
 | **Modelo 3** — MARL en formación | `src/cog_ew/marl_formation/` | ✅ A entorno IADS + B agentes QMIX/train + C comparación (IQL baseline + arnés coordinado vs independiente) implementados en rama (pendiente review final + merge) |
-| **Modelo 4** — GAN señales sintéticas | `src/cog_ew/gan_signals/` | 🚧 Sub-pieza A (núcleo cWGAN-GP) ✅ en rama; B export masivo + validez y C evaluación +22 % pendientes |
+| **Modelo 4** — GAN señales sintéticas | `src/cog_ew/gan_signals/` | 🚧 A (núcleo cWGAN-GP) ✅ mergeada + B (export masivo + validez) ✅ en rama; C evaluación +22 % pendiente |
 
 > **Nota sobre la capa IQ (RadioML):** es **infraestructura compartida**, no específica de un modelo. La
 > capa PDW/ELINT alimenta directamente al Modelo 2; la capa IQ queda disponible como representación de señal
@@ -100,11 +100,14 @@ sección de `estado-del-arte.md` con el hueco/oportunidad concreto.
 - **Entregable:** `src/cog_ew/gan_signals/{generator,discriminator,train}.py` + tests (estabilidad del
   entrenamiento, validez de las señales generadas).
 - **Estado:** descompuesto en A (núcleo cWGAN-GP), B (export masivo + validez) y C (evaluación +22 %
-  sobre Modelo 2). **Sub-pieza A ✅ implementada en rama** (`PDWGenerator` 1D-CNN con cabeza
-  sigmoid + Gumbel-softmax, `PDWCritic` Wasserstein sin BatchNorm, `TypeEmbedding` continuo,
-  entrenamiento WGAN-GP con λ=10, reproducibilidad + latencia + checkpoint). Pendientes B y C.
-  Backlog de B/Fase 6: logging por intervalo (campo `tracking` ya presente sin cablear),
-  `cuda.manual_seed_all` para runs GPU, widening de canales del crítico.
+  sobre Modelo 2). **Sub-pieza A ✅ mergeada** (`PDWGenerator` 1D-CNN sigmoid + Gumbel-softmax,
+  `PDWCritic` Wasserstein sin BatchNorm, `TypeEmbedding` continuo, WGAN-GP λ=10, reproducibilidad +
+  latencia + checkpoint). **Sub-pieza B ✅ en rama** (`sampler` catálogo de ≥50 tipos por interpolación
+  de pares + carga del checkpoint, `validity` estructural + Wasserstein-1/TV + diversidad, `export`
+  HDF5 por slices a `data/synthetic/` con provenance + `run_meta`/`metrics`). Pendiente C.
+  Backlog C/Fase 6: aumento de M2 con datos sintéticos y medición +22 %; logging por intervalo del
+  entrenamiento (campo `tracking` sin cablear), `cuda.manual_seed_all` para runs GPU, widening de
+  canales del crítico.
 
 ### Modelo 5 — Librería de respuestas EW pre-programadas (baseline)
 
@@ -151,7 +154,7 @@ Capa de datos (IQ + PDW) ✅
 | **2** | Modelo 5 — Baseline EW convencional | ✅ Hecho |
 | **3** | Modelo 1 — Deep RL jamming (entorno + agente + entrenamiento) | ✅ Hecho (A entorno + B agente/train + C comparación) |
 | **4** | Modelo 3 — MARL en formación (entorno + QMIX/train + comparación) | ✅ Implementado en rama (A entorno ✅ mergeado; B QMIX/train ✅; C comparación ✅), pendiente review final + merge |
-| **5** | Modelo 4 — GAN señales sintéticas | 🚧 Sub-pieza A (núcleo cWGAN-GP) ✅ en rama; spec+plan en `docs/superpowers/`; B y C pendientes |
+| **5** | Modelo 4 — GAN señales sintéticas | 🚧 A (núcleo cWGAN-GP) ✅ mergeada + B (export masivo + validez) ✅ en rama; specs+planes en `docs/superpowers/`; C pendiente |
 | **6** | Evaluación transversal (anclas Q1) + ejecución real en Colab + redacción del paper | ⬜ Pendiente |
 
 La **ejecución real de los entrenamientos** de los modelos ya implementados (Modelos 1, 2 y 3) se realiza en
