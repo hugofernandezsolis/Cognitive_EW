@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import torch
 from numpy.typing import NDArray
+from scipy.stats import wasserstein_distance
 
 
 def structural_validity(windows: torch.Tensor) -> dict[str, float]:
@@ -54,4 +57,40 @@ def diversity(windows: torch.Tensor, type_ids: NDArray[np.int64]) -> dict[str, f
         "n_distinct_categorical_patterns": float(len(patterns)),
         "n_types": float(n_types),
         "coverage": coverage,
+    }
+
+
+def distributional_realism(generated: torch.Tensor, real: torch.Tensor) -> dict[str, Any]:
+    """Compare distributional properties of generated vs real PDW windows.
+
+    Computes Wasserstein-1 distance per continuous feature (channels 0–4)
+    and total-variation distance for aggregated categorical distributions (channels 5–9).
+
+    Args:
+        generated: Generated windows tensor of shape (N, 10, 64).
+        real: Real windows tensor of shape (M, 10, 64).
+
+    Returns:
+        Dict with keys:
+        - wasserstein1_per_feature: List of 5 floats (one per continuous channel).
+        - wasserstein1_mean: Mean Wasserstein-1 distance across features.
+        - categorical_tv_distance: Total-variation distance in [0, 1].
+    """
+    gen = generated.detach().cpu().numpy()
+    rl = real.detach().cpu().numpy()
+    per_feature = [
+        float(wasserstein_distance(gen[:, f, :].reshape(-1), rl[:, f, :].reshape(-1)))
+        for f in range(5)
+    ]
+    gen_codes = gen[:, 5:, :].argmax(axis=1).reshape(-1)
+    real_codes = rl[:, 5:, :].argmax(axis=1).reshape(-1)
+    gen_hist = np.bincount(gen_codes, minlength=5).astype(np.float64)
+    real_hist = np.bincount(real_codes, minlength=5).astype(np.float64)
+    gen_hist /= gen_hist.sum()
+    real_hist /= real_hist.sum()
+    tv = 0.5 * float(np.abs(gen_hist - real_hist).sum())
+    return {
+        "wasserstein1_per_feature": per_feature,
+        "wasserstein1_mean": float(np.mean(per_feature)),
+        "categorical_tv_distance": tv,
     }

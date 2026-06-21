@@ -1,7 +1,9 @@
+from typing import Any
+
 import numpy as np
 import torch
 
-from cog_ew.gan_signals.validity import diversity, structural_validity
+from cog_ew.gan_signals.validity import distributional_realism, diversity, structural_validity
 
 
 def _valid_windows(n=8):
@@ -44,3 +46,20 @@ def test_diversity_full_coverage_and_variety():
 def test_diversity_single_sample_does_not_crash():
     out = diversity(_valid_windows(1), np.array([0], dtype=np.int64))
     assert out["mean_intersample_std"] == 0.0
+
+
+def test_distributional_realism_keys_and_ranges():
+    gen = _valid_windows(32)
+    real = _valid_windows(40)
+    out: dict[str, Any] = distributional_realism(gen, real)
+    assert len(out["wasserstein1_per_feature"]) == 5
+    assert all(v >= 0.0 for v in out["wasserstein1_per_feature"])
+    assert out["wasserstein1_mean"] >= 0.0
+    assert 0.0 <= out["categorical_tv_distance"] <= 1.0
+
+
+def test_distributional_realism_zero_for_identical_distributions():
+    w = _valid_windows(50)
+    out = distributional_realism(w, w)
+    assert out["wasserstein1_mean"] == 0.0
+    assert out["categorical_tv_distance"] == 0.0
