@@ -6,6 +6,7 @@ import hashlib
 import json
 import platform
 import random
+from collections.abc import Iterator
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -13,10 +14,14 @@ from typing import Any
 import numpy as np
 import torch
 import yaml
+from torch import nn
+from torch.utils.data import DataLoader
 
-from cog_ew.data.pdw_dataset import PDWConfig
+from cog_ew.data.pdw_dataset import PDWConfig, PDWSyntheticDataset
+from cog_ew.data.pdw_library import EmitterLibrary
 from cog_ew.gan_signals.discriminator import PDWCritic
 from cog_ew.gan_signals.generator import PDWGenerator, TypeEmbedding
+from cog_ew.temporal_cnn_elint.metrics import profile_latency
 
 
 @dataclass
@@ -122,3 +127,88 @@ class WGANGP:
         loss.backward()
         self.opt_g.step()
         return float(loss.item())
+
+
+class _GeneratorForward(nn.Module):
+    """Wraps PDWGenerator with a fixed embedding for latency profiling."""
+
+    def __init__(self, generator: PDWGenerator, e: torch.Tensor) -> None:
+        super().__init__()
+        self.generator = generator
+        self.e = e
+
+    def forward(self, z: torch.Tensor) -> torch.Tensor:
+        return self.generator(z, self.e)  # type: ignore[no-any-return]
+
+
+def _cycle(loader: DataLoader[Any]) -> Iterator[Any]:
+    while True:
+        yield from loader
+
+
+def train(config: WGANGPConfig) -> dict[str, Any]:
+    """Run the WGAN-GP training loop and write artifacts to config.out_dir."""
+    _set_seeds(config.seed)
+    library = EmitterLibrary.from_yaml(config.pdw.library_path)
+    n_emitters = len(library.emitter_names())
+    dataset = PDWSyntheticDataset(config.pdw)
+    loader: DataLoader[Any] = DataLoader(
+        dataset, batch_size=config.batch_size, shuffle=True, drop_last=True
+    )
+    learner = WGANGP(n_emitters, config, config.device)
+
+    out_dir = Path(config.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "run_meta.json").write_text(json.dumps(_run_metadata(config), indent=2))
+
+    data_iter = _cycle(loader)
+    critic_loss = 0.0
+    gen_loss = 0.0
+    for _ in range(config.total_steps):
+        for _ in range(config.n_critic):
+            real_x, ids, _, _ = next(data_iter)
+            critic_loss = learner.critic_update(real_x, ids)
+        _, ids, _, _ = next(data_iter)
+        gen_loss = learner.generator_update(ids)
+
+    real_x, ids, _, _ = next(data_iter)
+    real_x = real_x.to(learner.device)
+    e = learner.embedding(ids.to(learner.device)).detach()
+    with torch.no_grad():
+        fake = learner.generator(learner._z(real_x.size(0)), e)
+        wasserstein = float(
+            (learner.critic(real_x, e).mean() - learner.critic(fake, e).mean()).item()
+        )
+        diversity = float(fake.std(dim=0).mean().item())
+    gp = float(gradient_penalty(learner.critic, real_x, fake, e).item())
+
+    torch.save(
+        {
+            "generator": learner.generator.state_dict(),
+            "embedding": learner.embedding.state_dict(),
+            "critic": learner.critic.state_dict(),
+        },
+        out_dir / "best.pt",
+    )
+
+    e0 = learner.embedding(torch.zeros(1, dtype=torch.long, device=learner.device)).detach()
+    sample = torch.zeros(1, config.z_dim, device=learner.device)
+    mean_ms, p99_ms = profile_latency(
+        _GeneratorForward(learner.generator, e0),
+        sample,
+        n_warmup=5,
+        n_iter=50,
+        device=config.device,
+    )
+
+    final: dict[str, Any] = {
+        "wasserstein_estimate": wasserstein,
+        "gradient_penalty": gp,
+        "diversity_std": diversity,
+        "critic_loss": critic_loss,
+        "gen_loss": gen_loss,
+        "latency_mean_ms": mean_ms,
+        "latency_p99_ms": p99_ms,
+    }
+    (out_dir / "metrics.json").write_text(json.dumps(final, indent=2))
+    return {"final": final}

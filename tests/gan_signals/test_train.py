@@ -1,4 +1,5 @@
 import copy
+import json
 
 import numpy as np
 import torch
@@ -11,6 +12,7 @@ from cog_ew.gan_signals.train import (
     _run_metadata,
     _set_seeds,
     gradient_penalty,
+    train,
 )
 
 
@@ -95,3 +97,30 @@ def test_generator_update_changes_generator_and_embedding():
     assert any(
         not torch.allclose(before_e[k], v) for k, v in learner.embedding.state_dict().items()
     )
+
+
+def _tiny_config(tmp_path) -> WGANGPConfig:
+    config = WGANGPConfig.from_yaml("configs/gan_signals/wgan_gp.yaml")
+    config.pdw.n_trains = 2
+    config.z_dim, config.e_dim, config.channels = 8, 4, 8
+    config.batch_size, config.total_steps, config.n_critic = 8, 2, 2
+    config.out_dir = str(tmp_path / "run")
+    return config
+
+
+def test_train_writes_artifacts_and_checkpoint(tmp_path):
+    config = _tiny_config(tmp_path)
+    result = train(config)
+    out = tmp_path / "run"
+    assert (out / "run_meta.json").is_file()
+    metrics = json.loads((out / "metrics.json").read_text())
+    assert {
+        "wasserstein_estimate",
+        "gradient_penalty",
+        "diversity_std",
+        "latency_mean_ms",
+        "latency_p99_ms",
+    } <= set(metrics)
+    assert "final" in result
+    ckpt = torch.load(out / "best.pt", map_location="cpu", weights_only=True)
+    assert set(ckpt) == {"generator", "embedding", "critic"}
