@@ -25,7 +25,7 @@ ficha.
 | **Modelo 2** — Temporal CNN ELINT | `src/cog_ew/temporal_cnn_elint/` | ✅ Completo, mergeado |
 | **Modelo 5** — Baseline EW convencional | `src/cog_ew/ew_library/` | ✅ Completo, mergeado |
 | **Modelo 1** — Deep RL jamming | `src/cog_ew/deep_rl_jamming/` | ✅ Completo (A entorno + B agente/train + C comparación), mergeado |
-| **Modelo 3** — MARL en formación | `src/cog_ew/marl_formation/` | 🔄 A entorno IADS ✅ mergeado; B agentes QMIX+train ✅ implementado en rama (pendiente review final + merge); C comparación 🔄 rehaciéndose vía spec→plan→TDD |
+| **Modelo 3** — MARL en formación | `src/cog_ew/marl_formation/` | ✅ A entorno IADS + B agentes QMIX/train + C comparación (IQL baseline + arnés coordinado vs independiente) implementados en rama (pendiente review final + merge) |
 | **Modelo 4** — GAN señales sintéticas | `src/cog_ew/gan_signals/` | 📭 Stub |
 
 > **Nota sobre la capa IQ (RadioML):** es **infraestructura compartida**, no específica de un modelo. La
@@ -144,7 +144,7 @@ Capa de datos (IQ + PDW) ✅
 | **1** | Modelo 2 — Temporal CNN ELINT (slice entrenable) | ✅ Hecho |
 | **2** | Modelo 5 — Baseline EW convencional | ✅ Hecho |
 | **3** | Modelo 1 — Deep RL jamming (entorno + agente + entrenamiento) | ✅ Hecho (A entorno + B agente/train + C comparación) |
-| **4** | Modelo 3 — MARL en formación (entorno + QMIX/train + comparación) | 🔄 En curso (A entorno ✅ mergeado; B QMIX/train ✅ en rama, pendiente review+merge; C comparación 🔄 rehaciéndose) |
+| **4** | Modelo 3 — MARL en formación (entorno + QMIX/train + comparación) | ✅ Implementado en rama (A entorno ✅ mergeado; B QMIX/train ✅; C comparación ✅), pendiente review final + merge |
 | **5** | Modelo 4 — GAN señales sintéticas | 📭 Stub / pendiente de spec + plan + implementación |
 | **6** | Evaluación transversal (anclas Q1) + ejecución real en Colab + redacción del paper | ⬜ Pendiente |
 
