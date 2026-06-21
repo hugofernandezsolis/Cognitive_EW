@@ -194,11 +194,11 @@ class QMIXLearner(_SharedParamLearner):
         q_tot = self._mix(self.mixer, chosen, states)
         with torch.no_grad():
             target_tot = self._mix(self.target_mixer, target_max, states)
-            y = rewards[:, :-1] + self.config.gamma * (1.0 - dones[:, :-1]) * target_tot[:, 1:]
+            bootstrap = torch.cat([target_tot[:, 1:], torch.zeros_like(target_tot[:, :1])], dim=1)
+            y = rewards + self.config.gamma * (1.0 - dones) * bootstrap
 
-        td_error = F.smooth_l1_loss(q_tot[:, :-1], y, reduction="none")
-        mask = filled[:, :-1]
-        loss = (td_error * mask).sum() / mask.sum().clamp(min=1.0)
+        td_error = F.smooth_l1_loss(q_tot, y, reduction="none")
+        loss = (td_error * filled).sum() / filled.sum().clamp(min=1.0)
 
         self.optimizer.zero_grad()
         loss.backward()  # type: ignore[no-untyped-call]
@@ -274,12 +274,13 @@ class IQLLearner(_SharedParamLearner):
             target_max = target_qs.max(dim=3)[0]
 
         with torch.no_grad():
-            reward_b = rewards[:, :-1].unsqueeze(2)
-            done_b = dones[:, :-1].unsqueeze(2)
-            y = reward_b + self.config.gamma * (1.0 - done_b) * target_max[:, 1:]
+            bootstrap = torch.cat([target_max[:, 1:], torch.zeros_like(target_max[:, :1])], dim=1)
+            reward_b = rewards.unsqueeze(2)
+            done_b = dones.unsqueeze(2)
+            y = reward_b + self.config.gamma * (1.0 - done_b) * bootstrap
 
-        td_error = F.smooth_l1_loss(chosen[:, :-1], y, reduction="none")
-        mask = filled[:, :-1].unsqueeze(2).expand_as(td_error)
+        td_error = F.smooth_l1_loss(chosen, y, reduction="none")
+        mask = filled.unsqueeze(2).expand_as(td_error)
         loss = (td_error * mask).sum() / mask.sum().clamp(min=1.0)
 
         self.optimizer.zero_grad()

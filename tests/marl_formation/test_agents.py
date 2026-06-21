@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 import torch
 
@@ -99,6 +101,24 @@ def test_update_returns_finite_loss_and_changes_params():
     assert not torch.allclose(before, after)
 
 
+def _terminal_reward_batch(value, B=2, T=5, N=4, obs_dim=24, state_dim=28, action_dim=48):
+    obs, actions, _rewards, states, dones, filled = _batch(B, T, N, obs_dim, state_dim, action_dim)
+    rewards = np.zeros((B, T), dtype=np.float32)
+    rewards[:, -1] = value
+    return obs, actions, rewards, states, dones, filled
+
+
+def test_update_uses_terminal_reward():
+    learner = _learner()
+    init_agent = copy.deepcopy(learner.agent.state_dict())
+    init_mixer = copy.deepcopy(learner.mixer.state_dict())
+    loss_zero = learner.update(_terminal_reward_batch(0.0))
+    learner.agent.load_state_dict(init_agent)
+    learner.mixer.load_state_dict(init_mixer)
+    loss_big = learner.update(_terminal_reward_batch(100.0))
+    assert loss_zero != loss_big
+
+
 def test_update_syncs_target_after_interval():
     config = QMIXConfig(hidden=16, mixer_embed_dim=8, hypernet_hidden=16, target_sync=1)
     learner = QMIXLearner(24, 48, 4, 28, config, "cpu", np.random.default_rng(0))
@@ -161,6 +181,24 @@ def test_iql_update_returns_finite_loss_and_changes_params():
     after = next(learner.agent.parameters())
     assert np.isfinite(loss)
     assert not torch.allclose(before, after)
+
+
+def _iql_terminal_reward_batch(value, B=2, T=5, N=4, obs_dim=24, state_dim=28, action_dim=48):
+    obs, actions, _rewards, states, dones, filled = _iql_batch(
+        B, T, N, obs_dim, state_dim, action_dim
+    )
+    rewards = np.zeros((B, T), dtype=np.float32)
+    rewards[:, -1] = value
+    return obs, actions, rewards, states, dones, filled
+
+
+def test_iql_update_uses_terminal_reward():
+    learner = _iql()
+    init_agent = copy.deepcopy(learner.agent.state_dict())
+    loss_zero = learner.update(_iql_terminal_reward_batch(0.0))
+    learner.agent.load_state_dict(init_agent)
+    loss_big = learner.update(_iql_terminal_reward_batch(100.0))
+    assert loss_zero != loss_big
 
 
 def test_iql_update_syncs_target_after_interval():
