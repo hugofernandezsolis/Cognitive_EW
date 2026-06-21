@@ -2,7 +2,12 @@ import torch
 
 from cog_ew.data.pdw_dataset import PDWConfig
 from cog_ew.data.synthetic_loader import SyntheticPDWDataset
-from cog_ew.gan_signals.robustness import RobustnessConfig, _classifier_loss, evaluate_type_accuracy
+from cog_ew.gan_signals.robustness import (
+    RobustnessConfig,
+    _classifier_loss,
+    _fit_classifier,
+    evaluate_type_accuracy,
+)
 from cog_ew.temporal_cnn_elint.model import TemporalCNN, TemporalCNNConfig
 
 
@@ -72,3 +77,29 @@ def test_evaluate_type_accuracy_moves_model_to_device(tmp_path):
     model = _tiny_model()
     evaluate_type_accuracy(model, ds, n_types=8, device="cpu")
     assert next(model.parameters()).device.type == "cpu"
+
+
+def test_fit_classifier_returns_trained_model(tmp_path):
+    import h5py
+    import numpy as np
+
+    path = tmp_path / "s.h5"
+    with h5py.File(path, "w") as fh:
+        fh.create_dataset("X", data=np.random.rand(40, 10, 64).astype(np.float32))
+        fh.create_dataset("source_a", data=np.random.randint(0, 8, 40).astype(np.int64))
+        fh.create_dataset("is_known", data=np.ones(40, dtype=bool))
+    ds = SyntheticPDWDataset(path)
+
+    model = _fit_classifier(
+        TemporalCNNConfig(hidden=8, dilations=(1,), dropout=0.0),
+        ds,
+        ds,
+        epochs=2,
+        batch_size=16,
+        lr=1e-3,
+        weight_decay=0.0,
+        device="cpu",
+    )
+    assert isinstance(model, TemporalCNN)
+    acc = evaluate_type_accuracy(model, ds, n_types=8, device="cpu")
+    assert 0.0 <= acc <= 1.0

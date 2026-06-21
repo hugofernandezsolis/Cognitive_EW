@@ -89,3 +89,43 @@ def evaluate_type_accuracy(
         preds.append(type_pred.cpu())
         targets.append(y_type)
     return macro_accuracy(torch.cat(preds), torch.cat(targets), n_types)
+
+
+def _fit_classifier(
+    model_config: TemporalCNNConfig,
+    train_ds: Dataset[Any],
+    val_ds: Dataset[Any],
+    *,
+    epochs: int,
+    batch_size: int,
+    lr: float,
+    weight_decay: float,
+    device: str,
+) -> TemporalCNN:
+    """Train a TemporalCNN classifier with early stopping by validation accuracy.
+
+    Returns the model with weights from the epoch with highest type accuracy on val_ds.
+    """
+    dev = torch.device(device)
+    model = TemporalCNN(model_config).to(dev)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    train_loader: DataLoader[Any] = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+    best_acc = -1.0
+    best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
+    for _ in range(epochs):
+        model.train()
+        for x, y_type, y_mode, _ in train_loader:
+            x = x.to(dev)
+            y_type = y_type.to(dev)
+            y_mode = y_mode.to(dev)
+            type_logits, mode_logits = model(x)
+            loss = _classifier_loss(type_logits, mode_logits, y_type, y_mode)
+            optimizer.zero_grad()
+            loss.backward()  # type: ignore[no-untyped-call]
+            optimizer.step()
+        acc = evaluate_type_accuracy(model, val_ds, model_config.n_types, device)
+        if acc > best_acc:
+            best_acc = acc
+            best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
+    model.load_state_dict(best_state)
+    return model
