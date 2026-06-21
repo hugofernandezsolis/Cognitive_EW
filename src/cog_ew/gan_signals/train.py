@@ -16,6 +16,7 @@ import yaml
 
 from cog_ew.data.pdw_dataset import PDWConfig
 from cog_ew.gan_signals.discriminator import PDWCritic
+from cog_ew.gan_signals.generator import PDWGenerator, TypeEmbedding
 
 
 @dataclass
@@ -81,3 +82,45 @@ def gradient_penalty(
     flat = grads.reshape(batch, -1)
     penalty: torch.Tensor = ((flat.norm(2, dim=1) - 1.0) ** 2).mean()
     return penalty
+
+
+class WGANGP:
+    def __init__(self, n_emitters: int, config: WGANGPConfig, device: str) -> None:
+        self.config = config
+        self.device = torch.device(device)
+        self.embedding = TypeEmbedding(n_emitters, config.e_dim).to(self.device)
+        self.generator = PDWGenerator(
+            config.z_dim, config.e_dim, config.channels, gumbel_tau=config.gumbel_tau
+        ).to(self.device)
+        self.critic = PDWCritic(config.e_dim, config.channels).to(self.device)
+        gen_params = list(self.generator.parameters()) + list(self.embedding.parameters())
+        self.opt_g = torch.optim.Adam(gen_params, lr=config.lr, betas=(0.0, 0.9))
+        self.opt_c = torch.optim.Adam(self.critic.parameters(), lr=config.lr, betas=(0.0, 0.9))
+
+    def _z(self, batch: int) -> torch.Tensor:
+        return torch.randn(batch, self.config.z_dim, device=self.device)
+
+    def critic_update(self, real_x: torch.Tensor, ids: torch.Tensor) -> float:
+        real_x = real_x.to(self.device)
+        e = self.embedding(ids.to(self.device)).detach()
+        self.generator.eval()
+        with torch.no_grad():
+            fake = self.generator(self._z(real_x.size(0)), e)
+        self.generator.train()
+        real_score = self.critic(real_x, e).mean()
+        fake_score = self.critic(fake, e).mean()
+        gp = gradient_penalty(self.critic, real_x, fake, e)
+        loss = fake_score - real_score + self.config.lambda_gp * gp
+        self.opt_c.zero_grad()
+        loss.backward()
+        self.opt_c.step()
+        return float(loss.item())
+
+    def generator_update(self, ids: torch.Tensor) -> float:
+        e = self.embedding(ids.to(self.device))
+        fake = self.generator(self._z(ids.size(0)), e)
+        loss = -self.critic(fake, e).mean()
+        self.opt_g.zero_grad()
+        loss.backward()
+        self.opt_g.step()
+        return float(loss.item())

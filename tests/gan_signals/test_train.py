@@ -1,8 +1,17 @@
+import copy
+
+import numpy as np
 import torch
 
 from cog_ew.data.pdw_dataset import PDWConfig
 from cog_ew.gan_signals.discriminator import PDWCritic
-from cog_ew.gan_signals.train import WGANGPConfig, _run_metadata, _set_seeds, gradient_penalty
+from cog_ew.gan_signals.train import (
+    WGANGP,
+    WGANGPConfig,
+    _run_metadata,
+    _set_seeds,
+    gradient_penalty,
+)
 
 
 def test_gradient_penalty_is_finite_nonnegative_scalar():
@@ -49,3 +58,38 @@ def test_run_metadata_has_required_keys():
     assert set(meta) == {"seed", "hyperparameters", "config_hash", "dependencies"}
     assert meta["seed"] == config.seed
     assert {"python", "torch", "numpy"} <= set(meta["dependencies"])
+
+
+def _learner() -> WGANGP:
+    config = WGANGPConfig.from_yaml("configs/gan_signals/wgan_gp.yaml")
+    config.z_dim, config.e_dim, config.channels = 8, 4, 8
+    return WGANGP(n_emitters=8, config=config, device="cpu")
+
+
+def test_critic_update_changes_only_critic_params():
+    torch.manual_seed(0)
+    learner = _learner()
+    real = torch.rand(6, 10, 64)
+    ids = torch.randint(0, 8, (6,))
+    before_c = copy.deepcopy(learner.critic.state_dict())
+    before_g = copy.deepcopy(learner.generator.state_dict())
+    loss = learner.critic_update(real, ids)
+    assert np.isfinite(loss)
+    assert any(not torch.allclose(before_c[k], v) for k, v in learner.critic.state_dict().items())
+    assert all(torch.allclose(before_g[k], v) for k, v in learner.generator.state_dict().items())
+
+
+def test_generator_update_changes_generator_and_embedding():
+    torch.manual_seed(0)
+    learner = _learner()
+    ids = torch.randint(0, 8, (6,))
+    before_g = copy.deepcopy(learner.generator.state_dict())
+    before_e = copy.deepcopy(learner.embedding.state_dict())
+    loss = learner.generator_update(ids)
+    assert np.isfinite(loss)
+    assert any(
+        not torch.allclose(before_g[k], v) for k, v in learner.generator.state_dict().items()
+    )
+    assert any(
+        not torch.allclose(before_e[k], v) for k, v in learner.embedding.state_dict().items()
+    )
