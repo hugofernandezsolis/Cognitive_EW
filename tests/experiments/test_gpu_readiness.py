@@ -16,6 +16,7 @@ MODULES = [
 def test_set_seeds_seeds_cuda(module_name, monkeypatch):
     module = importlib.import_module(module_name)
     calls: list[int] = []
+    monkeypatch.setattr(module.torch, "manual_seed", lambda s: None)
     monkeypatch.setattr(module.torch.cuda, "manual_seed_all", lambda s: calls.append(s))
     module._set_seeds(123)
-    assert 123 in calls
+    assert calls == [123]
