@@ -144,6 +144,7 @@ def _set_seeds(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 
 def _file_sha256(path: str) -> str:
