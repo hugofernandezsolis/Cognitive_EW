@@ -34,6 +34,34 @@ def test_dataset_item_shape_and_labels():
     assert threat_idx == 0  # search -> low
 
 
+def test_dataset_v2_feature_shape():
+    ds = PDWSyntheticDataset(_config(feature_set="v2"))
+
+    pdw, type_idx, mode_idx, threat_idx = ds[0]
+
+    assert pdw.shape == (18, 64)
+    assert pdw.dtype == torch.float32
+    assert type_idx == 6
+    assert mode_idx == 0
+    assert threat_idx == 0
+
+
+def test_dataset_v2_features_are_deterministic():
+    a = PDWSyntheticDataset(_config(feature_set="v2", seed=123))[0][0]
+    b = PDWSyntheticDataset(_config(feature_set="v2", seed=123))[0][0]
+
+    assert torch.allclose(a, b)
+
+
+def test_dataset_rejects_unknown_feature_set():
+    try:
+        PDWSyntheticDataset(_config(feature_set="unknown"))
+    except ValueError as exc:
+        assert "feature_set" in str(exc)
+    else:
+        raise AssertionError("PDWConfig accepted an unknown feature_set")
+
+
 def test_dataset_filters_modes():
     ds = PDWSyntheticDataset(_config(modes=("search", "track")))
     modes = {int(ds[i][2]) for i in range(len(ds))}

@@ -6,7 +6,7 @@ jamming_responses_config: configs/ew_library/responses.yaml
 jamming_total_steps: null
 jamming_eval_episodes: null
 jamming_compare_episodes: 200
-elint_config: configs/temporal_cnn_elint/train.yaml
+elint_config: configs/temporal_cnn_elint/train_v2.yaml
 elint_epochs: null
 marl_qmix_config: configs/marl_formation/qmix.yaml
 marl_iql_config: configs/marl_formation/iql.yaml

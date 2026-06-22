@@ -1,4 +1,5 @@
 import dataclasses
+import json
 import math
 from pathlib import Path
 
@@ -40,10 +41,24 @@ def test_anchor_result_is_frozen():
 def test_run_elint_anchor_quick(tmp_path):
     profile = ExperimentProfile.from_yaml(QUICK)
     result = run_elint_anchor(profile, tmp_path)
+    metrics = json.loads((Path(result.run_dir) / "metrics.json").read_text())
+    expected = (
+        0.0
+        if metrics["latency_p99_ms"] >= 1.0
+        else min(
+            metrics["macro_acc_type"],
+            metrics["macro_acc_mode"],
+            metrics["macro_acc_threat"],
+            metrics["lpi_accuracy"],
+        )
+    )
+
     assert result.name == "elint"
     assert result.target == 0.96
     assert result.baseline is None
     assert 0.0 <= result.achieved <= 1.0
+    assert result.achieved == expected
+    assert result.passed == (expected >= result.target)
     assert Path(result.run_dir).exists()
     assert (Path(result.run_dir) / "metrics.json").exists()
 

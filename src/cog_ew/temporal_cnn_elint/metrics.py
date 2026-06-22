@@ -3,10 +3,28 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping
 
 import numpy as np
 import torch
 from torch import nn
+
+STRICT_ELINT_KEYS = ("macro_acc_type", "macro_acc_mode", "macro_acc_threat", "lpi_accuracy")
+
+
+def strict_elint_score(metrics: Mapping[str, float], latency_p99_ms: float = 1.0) -> float:
+    if float(metrics["latency_p99_ms"]) >= latency_p99_ms:
+        return 0.0
+    return min(float(metrics[key]) for key in STRICT_ELINT_KEYS)
+
+
+def strict_elint_passed(
+    metrics: Mapping[str, float],
+    *,
+    target: float = 0.96,
+    latency_p99_ms: float = 1.0,
+) -> bool:
+    return strict_elint_score(metrics, latency_p99_ms=latency_p99_ms) >= target
 
 
 def macro_accuracy(preds: torch.Tensor, targets: torch.Tensor, num_classes: int) -> float:
@@ -54,7 +72,7 @@ def profile_latency(
     sample = sample.to(dev)
     is_cuda = dev.type == "cuda"
     times: list[float] = []
-    with torch.no_grad():
+    with torch.inference_mode():
         for _ in range(n_warmup):
             model(sample)
         if is_cuda:

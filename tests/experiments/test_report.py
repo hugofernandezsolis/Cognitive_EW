@@ -37,8 +37,20 @@ def test_run_anchors_single_writes_report(tmp_path):
     assert "config_hash" in report
     assert "torch" in report["dependencies"]
     elint = report["anchors"]["elint"]
+    metrics = json.loads((tmp_path / "elint" / "metrics.json").read_text())
+    expected = (
+        0.0
+        if metrics["latency_p99_ms"] >= 1.0
+        else min(
+            metrics["macro_acc_type"],
+            metrics["macro_acc_mode"],
+            metrics["macro_acc_threat"],
+            metrics["lpi_accuracy"],
+        )
+    )
     assert elint["target"] == 0.96
-    assert elint["passed"] == (elint["achieved"] >= elint["target"])
+    assert elint["achieved"] == expected
+    assert elint["passed"] == (expected >= elint["target"])
     on_disk = json.loads((tmp_path / "anchors_report.json").read_text())
     assert on_disk == report
 
