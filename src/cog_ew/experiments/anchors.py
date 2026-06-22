@@ -7,6 +7,16 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+import torch
+from gymnasium.spaces import Discrete
+
+from cog_ew.deep_rl_jamming.agent import D3QNAgent
+from cog_ew.deep_rl_jamming.compare import AgentPolicy, BaselinePolicy, compare
+from cog_ew.deep_rl_jamming.env import RadarJammingEnv
+from cog_ew.deep_rl_jamming.train import TrainConfig as JammingTrainConfig
+from cog_ew.deep_rl_jamming.train import train as train_jamming
+from cog_ew.ew_library.library import EWResponseLibrary
 from cog_ew.temporal_cnn_elint.train import TrainConfig as ElintTrainConfig
 from cog_ew.temporal_cnn_elint.train import train as train_elint
 
@@ -52,5 +62,49 @@ def run_elint_anchor(profile: ExperimentProfile, out_dir: Path) -> AnchorResult:
         achieved=achieved,
         baseline=None,
         passed=_passed(achieved, _TARGETS["elint"]),
+        run_dir=str(run_dir),
+    )
+
+
+def run_jamming_anchor(profile: ExperimentProfile, out_dir: Path) -> AnchorResult:
+    run_dir = Path(out_dir) / "jamming"
+    config = JammingTrainConfig.from_yaml(profile.jamming_config)
+    config = replace(
+        config,
+        device=profile.device,
+        seed=profile.seed,
+        out_dir=str(run_dir),
+        **_overrides(
+            total_steps=profile.jamming_total_steps,
+            eval_episodes=profile.jamming_eval_episodes,
+        ),
+    )
+    train_jamming(config)
+
+    env = RadarJammingEnv(config.env)
+    obs_shape = env.observation_space.shape
+    assert obs_shape is not None
+    obs_dim = int(np.prod(obs_shape))
+    assert isinstance(env.action_space, Discrete)
+    n_actions = int(env.action_space.n)
+
+    rng = np.random.default_rng(profile.seed)
+    agent = D3QNAgent(obs_dim, n_actions, config.agent, profile.device, rng)
+    state_dict = torch.load(run_dir / "best.pt", map_location=profile.device, weights_only=True)
+    agent.online_net.load_state_dict(state_dict)
+
+    library = EWResponseLibrary.from_yaml(profile.jamming_responses_config)
+    cognitive = AgentPolicy(agent)
+    baseline = BaselinePolicy(library, env)
+    result = compare(env, cognitive, baseline, profile.jamming_compare_episodes, profile.seed)
+
+    achieved = float(result["cognitive"]["win_rate"])
+    baseline_wr = float(result["baseline"]["win_rate"])
+    return AnchorResult(
+        name="jamming",
+        target=_TARGETS["jamming"],
+        achieved=achieved,
+        baseline=baseline_wr,
+        passed=_passed(achieved, _TARGETS["jamming"]),
         run_dir=str(run_dir),
     )
