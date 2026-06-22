@@ -1,4 +1,7 @@
+import dataclasses
 import math
+
+import pytest
 
 from cog_ew.experiments.anchors import _TARGETS, AnchorResult, _passed
 
@@ -19,3 +22,5 @@ def test_anchor_result_is_frozen():
     r = AnchorResult("elint", 0.96, 0.5, None, False, "/tmp/run")
     assert r.name == "elint"
     assert r.baseline is None
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        r.name = "gan"  # type: ignore[misc]
