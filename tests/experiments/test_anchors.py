@@ -9,6 +9,7 @@ from cog_ew.experiments.anchors import (
     AnchorResult,
     _passed,
     run_elint_anchor,
+    run_gan_anchor,
     run_jamming_anchor,
 )
 from cog_ew.experiments.report import ExperimentProfile
@@ -70,3 +71,15 @@ def test_run_marl_anchor_quick(tmp_path):
         assert result.passed is False
     assert (Path(result.run_dir) / "qmix" / "best.pt").exists()
     assert (Path(result.run_dir) / "iql" / "best.pt").exists()
+
+
+def test_run_gan_anchor_quick(tmp_path):
+    profile = ExperimentProfile.from_yaml(QUICK)
+    result = run_gan_anchor(profile, tmp_path)
+    assert result.name == "gan"
+    assert result.target == 0.22
+    assert result.baseline is not None
+    assert math.isfinite(result.achieved) or math.isinf(result.achieved)
+    if math.isinf(result.achieved):
+        assert result.passed is False
+    assert (Path(result.run_dir) / "synthetic.h5").exists()

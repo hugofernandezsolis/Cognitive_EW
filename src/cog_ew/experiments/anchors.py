@@ -17,6 +17,10 @@ from cog_ew.deep_rl_jamming.env import RadarJammingEnv
 from cog_ew.deep_rl_jamming.train import TrainConfig as JammingTrainConfig
 from cog_ew.deep_rl_jamming.train import train as train_jamming
 from cog_ew.ew_library.library import EWResponseLibrary
+from cog_ew.gan_signals.export import ExportConfig, export_synthetic
+from cog_ew.gan_signals.robustness import RobustnessConfig, run_robustness_experiment
+from cog_ew.gan_signals.train import WGANGPConfig
+from cog_ew.gan_signals.train import train as train_gan
 from cog_ew.marl_formation.compare import AgentPolicy as MarlAgentPolicy
 from cog_ew.marl_formation.compare import compare_policies
 from cog_ew.marl_formation.env import IADSFormationEnv
@@ -172,5 +176,51 @@ def run_marl_anchor(profile: ExperimentProfile, out_dir: Path) -> AnchorResult:
         achieved=achieved,
         baseline=baseline,
         passed=_passed(achieved, _TARGETS["marl"]),
+        run_dir=str(run_dir),
+    )
+
+
+def run_gan_anchor(profile: ExperimentProfile, out_dir: Path) -> AnchorResult:
+    run_dir = Path(out_dir) / "gan"
+    gan_dir = run_dir / "wgan_gp"
+    synth_path = run_dir / "synthetic.h5"
+
+    gan_cfg = replace(
+        WGANGPConfig.from_yaml(profile.gan_config),
+        device=profile.device,
+        seed=profile.seed,
+        out_dir=str(gan_dir),
+        **_overrides(total_steps=profile.gan_total_steps),
+    )
+    train_gan(gan_cfg)
+
+    export_cfg = replace(
+        ExportConfig.from_yaml(profile.export_config),
+        checkpoint=str(gan_dir / "best.pt"),
+        out_path=str(synth_path),
+        device=profile.device,
+        seed=profile.seed,
+        **_overrides(samples_per_type=profile.export_samples_per_type),
+    )
+    export_synthetic(export_cfg)
+
+    rob_cfg = replace(
+        RobustnessConfig.from_yaml(profile.robustness_config),
+        synthetic_path=str(synth_path),
+        device=profile.device,
+        seed=profile.seed,
+        out_dir=str(run_dir / "robustness"),
+        **_overrides(epochs=profile.robustness_epochs),
+    )
+    result = run_robustness_experiment(rob_cfg)
+
+    achieved = float(result["relative_improvement"])
+    baseline = float(result["baseline"])
+    return AnchorResult(
+        name="gan",
+        target=_TARGETS["gan"],
+        achieved=achieved,
+        baseline=baseline,
+        passed=_passed(achieved, _TARGETS["gan"]),
         run_dir=str(run_dir),
     )
