@@ -1,5 +1,10 @@
 # Changes
 
+## 2026-06-22 - M4 robustness score finito
+
+- Sustituido el caso `relative_improvement = Infinity` de M4 cuando el baseline held-out es `0.0` por una métrica finita: ratio relativo si `baseline > 0`, ganancia absoluta si `baseline == 0`.
+- Reforzado el test del ancla GAN para exigir `achieved` finito, evitando que `_passed()` rechace resultados semánticamente buenos por división entre cero.
+
 ## 2026-06-22 - M2-v2 ELINT estricto
 
 - Añadido `feature_set: v2` al dataset PDW para exponer señales temporales derivadas sin romper el flujo v1 usado por otros modelos, especialmente M4.

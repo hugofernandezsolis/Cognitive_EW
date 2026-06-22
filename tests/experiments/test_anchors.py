@@ -94,7 +94,6 @@ def test_run_gan_anchor_quick(tmp_path):
     assert result.name == "gan"
     assert result.target == 0.22
     assert result.baseline is not None
-    assert math.isfinite(result.achieved) or math.isinf(result.achieved)
-    if math.isinf(result.achieved):
-        assert result.passed is False
+    assert math.isfinite(result.achieved)
+    assert result.passed == (result.achieved >= result.target)
     assert (Path(result.run_dir) / "synthetic.h5").exists()

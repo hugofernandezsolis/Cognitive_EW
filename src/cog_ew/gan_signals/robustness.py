@@ -147,6 +147,18 @@ def _set_seeds(seed: int) -> None:
     torch.cuda.manual_seed_all(seed)
 
 
+def robustness_improvement_score(baseline: float, augmented: float) -> float:
+    """Return a finite robustness score for the M4 anchor.
+
+    Use relative improvement when the baseline has support. If the baseline is zero,
+    the relative ratio is undefined, so the absolute gain is the meaningful anchor.
+    """
+    delta = augmented - baseline
+    if baseline > 0:
+        return delta / baseline
+    return delta
+
+
 def _file_sha256(path: str) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -195,7 +207,7 @@ def run_robustness_experiment(config: RobustnessConfig) -> dict[str, Any]:
 
     global_eval: Dataset[Any] = ConcatDataset([val_ds, held_ds])
     delta = aug_acc - base_acc
-    rel = delta / base_acc if base_acc > 0 else float("inf")
+    rel = robustness_improvement_score(base_acc, aug_acc)
     metrics: dict[str, Any] = {
         "baseline": base_acc,
         "augmented": aug_acc,

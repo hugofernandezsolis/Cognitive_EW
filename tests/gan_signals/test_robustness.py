@@ -10,6 +10,7 @@ from cog_ew.gan_signals.robustness import (
     RobustnessConfig,
     _classifier_loss,
     _fit_classifier,
+    robustness_improvement_score,
     evaluate_type_accuracy,
     run_robustness_experiment,
 )
@@ -46,9 +47,9 @@ def test_run_robustness_experiment_reports_delta(tmp_path):
     result = run_robustness_experiment(config)
     assert set(result) == {"baseline", "augmented", "delta", "relative_improvement", "global"}
     assert result["delta"] == result["augmented"] - result["baseline"]
-    base = result["baseline"]
-    expected_rel = (result["augmented"] - base) / base if base > 0 else float("inf")
-    assert result["relative_improvement"] == expected_rel
+    assert result["relative_improvement"] == robustness_improvement_score(
+        result["baseline"], result["augmented"]
+    )
     assert set(result["global"]) == {"baseline", "augmented"}
     out = tmp_path / "run"
     assert (out / "run_meta.json").is_file()
@@ -56,6 +57,15 @@ def test_run_robustness_experiment_reports_delta(tmp_path):
     assert "latency_mean_ms" not in result
     disk = json.loads((out / "metrics.json").read_text())
     assert "latency_mean_ms" in disk
+
+
+def test_robustness_improvement_score_uses_ratio_with_positive_baseline():
+    assert robustness_improvement_score(0.5, 0.75) == 0.5
+
+
+def test_robustness_improvement_score_uses_absolute_gain_with_zero_baseline():
+    assert robustness_improvement_score(0.0, 1.0) == 1.0
+    assert robustness_improvement_score(0.0, 0.0) == 0.0
 
 
 def test_run_robustness_experiment_is_reproducible(tmp_path):
