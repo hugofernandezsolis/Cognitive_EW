@@ -1,9 +1,13 @@
 import dataclasses
 import math
+from pathlib import Path
 
 import pytest
 
-from cog_ew.experiments.anchors import _TARGETS, AnchorResult, _passed
+from cog_ew.experiments.anchors import _TARGETS, AnchorResult, _passed, run_elint_anchor
+from cog_ew.experiments.report import ExperimentProfile
+
+QUICK = "configs/experiments/quick.yaml"
 
 
 def test_targets_are_the_q1_anchors():
@@ -24,3 +28,14 @@ def test_anchor_result_is_frozen():
     assert r.baseline is None
     with pytest.raises(dataclasses.FrozenInstanceError):
         r.name = "gan"  # type: ignore[misc]
+
+
+def test_run_elint_anchor_quick(tmp_path):
+    profile = ExperimentProfile.from_yaml(QUICK)
+    result = run_elint_anchor(profile, tmp_path)
+    assert result.name == "elint"
+    assert result.target == 0.96
+    assert result.baseline is None
+    assert 0.0 <= result.achieved <= 1.0
+    assert Path(result.run_dir).exists()
+    assert (Path(result.run_dir) / "metrics.json").exists()
