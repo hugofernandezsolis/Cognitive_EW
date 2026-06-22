@@ -17,6 +17,11 @@ from cog_ew.deep_rl_jamming.env import RadarJammingEnv
 from cog_ew.deep_rl_jamming.train import TrainConfig as JammingTrainConfig
 from cog_ew.deep_rl_jamming.train import train as train_jamming
 from cog_ew.ew_library.library import EWResponseLibrary
+from cog_ew.marl_formation.compare import AgentPolicy as MarlAgentPolicy
+from cog_ew.marl_formation.compare import compare_policies
+from cog_ew.marl_formation.env import IADSFormationEnv
+from cog_ew.marl_formation.train import TrainConfig as MarlTrainConfig
+from cog_ew.marl_formation.train import train as train_marl
 from cog_ew.temporal_cnn_elint.train import TrainConfig as ElintTrainConfig
 from cog_ew.temporal_cnn_elint.train import train as train_elint
 
@@ -106,5 +111,66 @@ def run_jamming_anchor(profile: ExperimentProfile, out_dir: Path) -> AnchorResul
         achieved=achieved,
         baseline=baseline_wr,
         passed=_passed(achieved, _TARGETS["jamming"]),
+        run_dir=str(run_dir),
+    )
+
+
+def run_marl_anchor(profile: ExperimentProfile, out_dir: Path) -> AnchorResult:
+    run_dir = Path(out_dir) / "marl"
+    size = _overrides(
+        total_episodes=profile.marl_total_episodes,
+        eval_episodes=profile.marl_eval_episodes,
+    )
+    qmix_dir = run_dir / "qmix"
+    iql_dir = run_dir / "iql"
+    qmix_cfg = replace(
+        MarlTrainConfig.from_yaml(profile.marl_qmix_config),
+        device=profile.device,
+        seed=profile.seed,
+        out_dir=str(qmix_dir),
+        **size,
+    )
+    iql_cfg = replace(
+        MarlTrainConfig.from_yaml(profile.marl_iql_config),
+        device=profile.device,
+        seed=profile.seed,
+        out_dir=str(iql_dir),
+        **size,
+    )
+    train_marl(qmix_cfg)
+    train_marl(iql_cfg)
+
+    env = IADSFormationEnv(qmix_cfg.env)
+    coordinated = MarlAgentPolicy.from_checkpoint(
+        qmix_dir / "best.pt",
+        obs_dim=env.obs_dim,
+        action_dim=env.action_dim,
+        hidden=qmix_cfg.agent.hidden,
+        n_agents=env.n_agents,
+        device=profile.device,
+    )
+    independent = MarlAgentPolicy.from_checkpoint(
+        iql_dir / "best.pt",
+        obs_dim=env.obs_dim,
+        action_dim=env.action_dim,
+        hidden=iql_cfg.agent.hidden,
+        n_agents=env.n_agents,
+        device=profile.device,
+    )
+    result = compare_policies(
+        env,
+        coordinated=coordinated,
+        independent=independent,
+        episodes=profile.marl_compare_episodes,
+        seed=profile.seed,
+    )
+    achieved = float(result["relative_improvement"]["suppressed_fraction"])
+    baseline = float(result["independent"]["suppressed_fraction"])
+    return AnchorResult(
+        name="marl",
+        target=_TARGETS["marl"],
+        achieved=achieved,
+        baseline=baseline,
+        passed=_passed(achieved, _TARGETS["marl"]),
         run_dir=str(run_dir),
     )

@@ -55,3 +55,18 @@ def test_run_jamming_anchor_quick(tmp_path):
     assert 0.0 <= result.achieved <= 1.0
     assert result.baseline is not None and 0.0 <= result.baseline <= 1.0
     assert (Path(result.run_dir) / "best.pt").exists()
+
+
+def test_run_marl_anchor_quick(tmp_path):
+    profile = ExperimentProfile.from_yaml(QUICK)
+    from cog_ew.experiments.anchors import run_marl_anchor
+
+    result = run_marl_anchor(profile, tmp_path)
+    assert result.name == "marl"
+    assert result.target == 0.45
+    assert result.baseline is not None
+    assert math.isfinite(result.achieved) or math.isinf(result.achieved)
+    if math.isinf(result.achieved):
+        assert result.passed is False
+    assert (Path(result.run_dir) / "qmix" / "best.pt").exists()
+    assert (Path(result.run_dir) / "iql" / "best.pt").exists()
