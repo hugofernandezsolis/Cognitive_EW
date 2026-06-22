@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from cog_ew.temporal_cnn_elint.train import TrainConfig as ElintTrainConfig
 from cog_ew.temporal_cnn_elint.train import train as train_elint
@@ -30,13 +30,20 @@ def _passed(achieved: float, target: float) -> bool:
     return math.isfinite(achieved) and achieved >= target
 
 
+def _overrides(**kwargs: object) -> dict[str, Any]:
+    return {key: value for key, value in kwargs.items() if value is not None}
+
+
 def run_elint_anchor(profile: ExperimentProfile, out_dir: Path) -> AnchorResult:
     run_dir = Path(out_dir) / "elint"
     config = ElintTrainConfig.from_yaml(profile.elint_config)
-    kw: dict[str, object] = dict(device=profile.device, seed=profile.seed, out_dir=str(run_dir))
-    if profile.elint_epochs is not None:
-        kw["epochs"] = profile.elint_epochs
-    config = replace(config, **kw)  # type: ignore[arg-type]
+    config = replace(
+        config,
+        device=profile.device,
+        seed=profile.seed,
+        out_dir=str(run_dir),
+        **_overrides(epochs=profile.elint_epochs),
+    )
     result = train_elint(config)
     achieved = float(result["test"]["lpi_accuracy"])
     return AnchorResult(
