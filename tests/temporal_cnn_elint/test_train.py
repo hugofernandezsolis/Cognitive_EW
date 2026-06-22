@@ -1,7 +1,7 @@
 import json
 
 from cog_ew.data.pdw_dataset import PDWConfig
-from cog_ew.temporal_cnn_elint.model import TemporalCNNConfig
+from cog_ew.temporal_cnn_elint.model import TemporalCNNConfig, TemporalCNNV2Config
 from cog_ew.temporal_cnn_elint.train import TrainConfig, train
 
 CONFIG = "configs/temporal_cnn_elint/train.yaml"
@@ -12,11 +12,22 @@ def test_train_config_from_yaml_parses_nested_sections():
 
     assert isinstance(config.data, PDWConfig)
     assert isinstance(config.model, TemporalCNNConfig)
+    assert config.architecture == "v1"
     assert config.data.window == 64
     assert config.model.dilations == (1, 2, 4, 8)
     assert config.splits == (0.7, 0.15, 0.15)
     assert config.loss_weights == (1.0, 1.0)
     assert config.tracking is False
+
+
+def test_train_config_v2_yaml_parses():
+    config = TrainConfig.from_yaml("configs/temporal_cnn_elint/train_v2.yaml")
+
+    assert config.architecture == "v2"
+    assert isinstance(config.model, TemporalCNNV2Config)
+    assert config.data.feature_set == "v2"
+    assert config.model.in_channels == 18
+    assert len(config.loss_weights) == 3
 
 
 def _tiny_config(out_dir):
@@ -44,6 +55,34 @@ def _tiny_config(out_dir):
     )
 
 
+def _tiny_v2_config(out_dir):
+    data = PDWConfig(
+        library_path="configs/temporal_cnn_elint/emitters.yaml",
+        emitters=("SA-2", "LPI-FMCW"),
+        modes=("search", "track"),
+        window=64,
+        n_pulses=128,
+        n_trains=4,
+        seed=1,
+        feature_set="v2",
+    )
+    model = TemporalCNNV2Config(hidden=16, dilations=(1,), dropout=0.0)
+    return TrainConfig(
+        data=data,
+        model=model,
+        architecture="v2",
+        splits=(0.6, 0.2, 0.2),
+        batch_size=8,
+        epochs=1,
+        lr=1e-3,
+        device="cpu",
+        seed=1,
+        out_dir=str(out_dir),
+        tracking=False,
+        loss_weights=(1.0, 1.0, 1.0),
+    )
+
+
 def test_train_smoke_reduces_loss_and_writes_metrics(tmp_path):
     result = train(_tiny_config(tmp_path))
 
@@ -56,6 +95,18 @@ def test_train_smoke_reduces_loss_and_writes_metrics(tmp_path):
     assert "macro_acc_mode" in test_metrics
     assert "lpi_accuracy" in test_metrics
     assert test_metrics["latency_mean_ms"] > 0.0
+
+
+def test_train_v2_smoke_outputs_threat_metrics(tmp_path):
+    result = train(_tiny_v2_config(tmp_path))
+
+    test_metrics = result["test"]
+    assert "macro_acc_threat" in test_metrics
+    assert "confusion_threat" in test_metrics
+    assert "strict_elint_score" in test_metrics
+    assert test_metrics["macro_acc_type"] >= 0.0
+    assert test_metrics["macro_acc_mode"] >= 0.0
+    assert test_metrics["macro_acc_threat"] >= 0.0
 
 
 def test_train_is_deterministic(tmp_path):

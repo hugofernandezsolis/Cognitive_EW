@@ -5,6 +5,8 @@ from cog_ew.temporal_cnn_elint.metrics import (
     lpi_accuracy,
     macro_accuracy,
     profile_latency,
+    strict_elint_passed,
+    strict_elint_score,
 )
 from cog_ew.temporal_cnn_elint.model import TemporalCNN, TemporalCNNConfig
 
@@ -69,3 +71,41 @@ def test_profile_latency_returns_positive_mean_and_p99():
     assert mean_ms > 0.0
     assert p99_ms > 0.0
     assert p99_ms >= mean_ms
+
+
+def test_strict_elint_score_uses_worst_required_metric():
+    metrics = {
+        "macro_acc_type": 1.0,
+        "macro_acc_mode": 0.97,
+        "macro_acc_threat": 0.98,
+        "lpi_accuracy": 0.99,
+        "latency_p99_ms": 0.7,
+    }
+
+    assert strict_elint_score(metrics) == 0.97
+
+
+def test_strict_elint_score_zero_when_latency_fails():
+    metrics = {
+        "macro_acc_type": 1.0,
+        "macro_acc_mode": 1.0,
+        "macro_acc_threat": 1.0,
+        "lpi_accuracy": 1.0,
+        "latency_p99_ms": 1.01,
+    }
+
+    assert strict_elint_score(metrics) == 0.0
+
+
+def test_strict_elint_passed_requires_all_metrics_and_latency():
+    passing = {
+        "macro_acc_type": 0.96,
+        "macro_acc_mode": 0.97,
+        "macro_acc_threat": 0.98,
+        "lpi_accuracy": 0.99,
+        "latency_p99_ms": 0.99,
+    }
+    failing = dict(passing, macro_acc_mode=0.95)
+
+    assert strict_elint_passed(passing, target=0.96, latency_p99_ms=1.0)
+    assert not strict_elint_passed(failing, target=0.96, latency_p99_ms=1.0)

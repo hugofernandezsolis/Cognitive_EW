@@ -1,6 +1,6 @@
 # Roadmap de desarrollo — Cognitive Electronic Warfare System
 
-**Última actualización:** 2026-06-20
+**Última actualización:** 2026-06-22
 
 ## 1. Propósito y relación con `Propuesta.md`
 
@@ -22,7 +22,7 @@ ficha.
 |---|---|---|
 | Capa de datos IQ (RadioML) | `src/cog_ew/data/` (`preprocessing`, `loaders`) | ✅ Completa, mergeada |
 | Capa de datos PDW/ELINT | `src/cog_ew/data/` (`pdw_library`, `pdw_generator`, `pdw_dataset`) | ✅ Completa, mergeada |
-| **Modelo 2** — Temporal CNN ELINT | `src/cog_ew/temporal_cnn_elint/` | ✅ Completo, mergeado |
+| **Modelo 2** — Temporal CNN ELINT v2 | `src/cog_ew/temporal_cnn_elint/` | ✅ Estricto: type/mode/threat/LPI >= 0.96 y p99 < 1 ms |
 | **Modelo 5** — Baseline EW convencional | `src/cog_ew/ew_library/` | ✅ Completo, mergeado |
 | **Modelo 1** — Deep RL jamming | `src/cog_ew/deep_rl_jamming/` | ✅ Completo (A entorno + B agente/train + C comparación), mergeado |
 | **Modelo 3** — MARL en formación | `src/cog_ew/marl_formation/` | ✅ Completo (A entorno IADS + B agentes QMIX/train + C comparación IQL baseline coordinado vs independiente), mergeado |
@@ -55,15 +55,17 @@ sección de `estado-del-arte.md` con el hueco/oportunidad concreto.
 - **Entregable:** `src/cog_ew/deep_rl_jamming/{env,agent,train}.py` + tests (env del ciclo radar, reward EW,
   latencia de inferencia).
 
-### Modelo 2 — Temporal CNN para clasificación ELINT ✅
+### Modelo 2 — Temporal CNN para clasificación ELINT v2 ✅
 
 - **Objetivo:** CNN temporal que procesa la secuencia de pulsos del RWR y clasifica en tiempo real tipo de
   emisor, modo de operación y estado de amenaza, **incluyendo radares LPI**.
 - **Métrica ancla:** accuracy **>96 %** incluyendo LPI (vs. **<65 %** convencional); latencia **<1 ms**
-  (media + p99 en hardware fijo).
-- **Estado:** completo y mergeado. Slice entrenable (modelo TCN dilatada, métricas, perfilado de latencia,
-  bucle de entrenamiento, logging de reproducibilidad). Falta la **ejecución real** del entrenamiento en
-  Colab (`/experiment-run`) para reportar las cifras finales.
+  (media + p99 en hardware fijo). La validación v2 usa una métrica estricta: `macro_acc_type`,
+  `macro_acc_mode`, `macro_acc_threat` y `lpi_accuracy` deben estar en `>=0.96`, y `latency_p99_ms <1 ms`.
+- **Estado:** implementado en rama `m2-elint-v2-strict`, pendiente de integración. M2-v2 mantiene el flujo
+  PDW/ELINT, añade `feature_set: v2`, una `TemporalCNNV2` con cabezales explícitos de tipo, modo y amenaza,
+  y sustituye el criterio anterior basado en `lpi_accuracy` por `strict_elint_score`. Falta la
+  **ejecución real** del entrenamiento en Colab (`/experiment-run`) para reportar las cifras finales.
 - **Estado del arte:** `estado-del-arte.md` §2 (hueco §2.5: nadie reporta latencia; el SoA parte de ~15 ms).
 
 ### Modelo 3 — Multi-Agent RL para coordinación en formación

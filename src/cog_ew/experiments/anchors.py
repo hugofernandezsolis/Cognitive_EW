@@ -28,6 +28,7 @@ from cog_ew.marl_formation.train import TrainConfig as MarlTrainConfig
 from cog_ew.marl_formation.train import train as train_marl
 from cog_ew.temporal_cnn_elint.train import TrainConfig as ElintTrainConfig
 from cog_ew.temporal_cnn_elint.train import train as train_elint
+from cog_ew.temporal_cnn_elint.metrics import strict_elint_passed, strict_elint_score
 
 if TYPE_CHECKING:
     from cog_ew.experiments.report import ExperimentProfile
@@ -64,13 +65,14 @@ def run_elint_anchor(profile: ExperimentProfile, out_dir: Path) -> AnchorResult:
         **_overrides(epochs=profile.elint_epochs),
     )
     result = train_elint(config)
-    achieved = float(result["test"]["lpi_accuracy"])
+    metrics = result["test"]
+    achieved = strict_elint_score(metrics)
     return AnchorResult(
         name="elint",
         target=_TARGETS["elint"],
         achieved=achieved,
         baseline=None,
-        passed=_passed(achieved, _TARGETS["elint"]),
+        passed=strict_elint_passed(metrics, target=_TARGETS["elint"]),
         run_dir=str(run_dir),
     )
 
