@@ -81,6 +81,7 @@ def run_anchors(
             "baseline": result.baseline,
             "passed": result.passed,
             "run_dir": result.run_dir,
+            "metrics": result.metrics,
         }
     report: dict[str, Any] = {
         "profile_name": profile.name,

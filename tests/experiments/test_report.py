@@ -55,6 +55,16 @@ def test_run_anchors_single_writes_report(tmp_path):
     assert on_disk == report
 
 
+def test_run_anchors_elint_entry_carries_latency_metrics(tmp_path):
+    profile = ExperimentProfile.from_yaml(QUICK)
+    report = run_anchors(("elint",), profile, tmp_path)
+    elint = report["anchors"]["elint"]
+    metrics_json = json.loads((tmp_path / "elint" / "metrics.json").read_text())
+    assert "metrics" in elint
+    assert elint["metrics"]["latency_p99_ms"] == metrics_json["latency_p99_ms"]
+    assert elint["metrics"]["latency_mean_ms"] == metrics_json["latency_mean_ms"]
+
+
 def test_run_anchors_elint_reproducible_by_seed(tmp_path):
     profile = ExperimentProfile.from_yaml(QUICK)
     a = run_anchors(("elint",), profile, tmp_path / "a")

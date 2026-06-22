@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import math
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -26,9 +27,9 @@ from cog_ew.marl_formation.compare import compare_policies
 from cog_ew.marl_formation.env import IADSFormationEnv
 from cog_ew.marl_formation.train import TrainConfig as MarlTrainConfig
 from cog_ew.marl_formation.train import train as train_marl
+from cog_ew.temporal_cnn_elint.metrics import strict_elint_passed, strict_elint_score
 from cog_ew.temporal_cnn_elint.train import TrainConfig as ElintTrainConfig
 from cog_ew.temporal_cnn_elint.train import train as train_elint
-from cog_ew.temporal_cnn_elint.metrics import strict_elint_passed, strict_elint_score
 
 if TYPE_CHECKING:
     from cog_ew.experiments.report import ExperimentProfile
@@ -44,10 +45,23 @@ class AnchorResult:
     baseline: float | None
     passed: bool
     run_dir: str
+    metrics: dict[str, float] = field(default_factory=dict)
 
 
 def _passed(achieved: float, target: float) -> bool:
     return math.isfinite(achieved) and achieved >= target
+
+
+def _latency(metrics: dict[str, Any]) -> dict[str, float]:
+    return {
+        key: float(metrics[key]) for key in ("latency_mean_ms", "latency_p99_ms") if key in metrics
+    }
+
+
+def _latency_from_file(path: Path) -> dict[str, float]:
+    if not path.exists():
+        return {}
+    return _latency(json.loads(path.read_text()))
 
 
 def _overrides(**kwargs: object) -> dict[str, Any]:
@@ -74,6 +88,7 @@ def run_elint_anchor(profile: ExperimentProfile, out_dir: Path) -> AnchorResult:
         baseline=None,
         passed=strict_elint_passed(metrics, target=_TARGETS["elint"]),
         run_dir=str(run_dir),
+        metrics=_latency(metrics),
     )
 
 
@@ -118,6 +133,7 @@ def run_jamming_anchor(profile: ExperimentProfile, out_dir: Path) -> AnchorResul
         baseline=baseline_wr,
         passed=_passed(achieved, _TARGETS["jamming"]),
         run_dir=str(run_dir),
+        metrics=_latency_from_file(run_dir / "metrics.json"),
     )
 
 
@@ -179,6 +195,7 @@ def run_marl_anchor(profile: ExperimentProfile, out_dir: Path) -> AnchorResult:
         baseline=baseline,
         passed=_passed(achieved, _TARGETS["marl"]),
         run_dir=str(run_dir),
+        metrics=_latency_from_file(qmix_dir / "metrics.json"),
     )
 
 
@@ -225,4 +242,5 @@ def run_gan_anchor(profile: ExperimentProfile, out_dir: Path) -> AnchorResult:
         baseline=baseline,
         passed=_passed(achieved, _TARGETS["gan"]),
         run_dir=str(run_dir),
+        metrics=_latency_from_file(run_dir / "robustness" / "metrics.json"),
     )
