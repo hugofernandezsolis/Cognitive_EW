@@ -25,7 +25,7 @@ ficha.
 | **Modelo 2** — Temporal CNN ELINT | `src/cog_ew/temporal_cnn_elint/` | ✅ Completo, mergeado |
 | **Modelo 5** — Baseline EW convencional | `src/cog_ew/ew_library/` | ✅ Completo, mergeado |
 | **Modelo 1** — Deep RL jamming | `src/cog_ew/deep_rl_jamming/` | ✅ Completo (A entorno + B agente/train + C comparación), mergeado |
-| **Modelo 3** — MARL en formación | `src/cog_ew/marl_formation/` | ✅ A entorno IADS + B agentes QMIX/train + C comparación (IQL baseline + arnés coordinado vs independiente) implementados en rama (pendiente review final + merge) |
+| **Modelo 3** — MARL en formación | `src/cog_ew/marl_formation/` | ✅ Completo (A entorno IADS + B agentes QMIX/train + C comparación IQL baseline coordinado vs independiente), mergeado |
 | **Modelo 4** — GAN señales sintéticas | `src/cog_ew/gan_signals/` | ✅ Completo (A núcleo cWGAN-GP + B export masivo/validez + C evaluación de robustez); +22 % numérico pendiente de Fase 6 |
 
 > **Nota sobre la capa IQ (RadioML):** es **infraestructura compartida**, no específica de un modelo. La
@@ -157,13 +157,15 @@ Capa de datos (IQ + PDW) ✅
 | **1** | Modelo 2 — Temporal CNN ELINT (slice entrenable) | ✅ Hecho |
 | **2** | Modelo 5 — Baseline EW convencional | ✅ Hecho |
 | **3** | Modelo 1 — Deep RL jamming (entorno + agente + entrenamiento) | ✅ Hecho (A entorno + B agente/train + C comparación) |
-| **4** | Modelo 3 — MARL en formación (entorno + QMIX/train + comparación) | ✅ Implementado en rama (A entorno ✅ mergeado; B QMIX/train ✅; C comparación ✅), pendiente review final + merge |
+| **4** | Modelo 3 — MARL en formación (entorno + QMIX/train + comparación) | ✅ Completo (A entorno + B QMIX/train + C comparación), mergeado |
 | **5** | Modelo 4 — GAN señales sintéticas | ✅ Completo (A+B+C mergeados); +22 % numérico pendiente de Fase 6 (Colab/GPU) |
-| **6** | Evaluación transversal (anclas Q1) + ejecución real en Colab + redacción del paper | ⬜ Pendiente |
+| **6** | Evaluación transversal (anclas Q1) + ejecución real en Colab + redacción del paper | 🔄 En curso — **A (arnés de anclas)** ✅ mergeado: `src/cog_ew/experiments/` + `notebooks/run_anchors.py` + perfiles `configs/experiments/{quick,full}.yaml` orquestan M1–M4 → `anchors_report.json`. Pendiente **B** (ejecución real Colab/GPU con perfil `full` → cifras ancla, incl. +22 % de M4) y **C** (redacción del paper) |
 
-La **ejecución real de los entrenamientos** de los modelos ya implementados (Modelos 1, 2 y 3) se realiza en
-la Fase 6 sobre Colab/Kaggle vía la skill `/experiment-run`, que es la que produce las cifras finales para el
-paper. El Modelo 4 entra en esa fase cuando deje de ser stub y tenga su slice entrenable.
+La **ejecución real de los entrenamientos** de los cinco modelos ya implementados se realiza en la Fase 6
+sobre Colab/Kaggle. El arnés de la sub-pieza 6A (`notebooks/run_anchors.py --profile full`, sobre
+`src/cog_ew/experiments/`) orquesta los pipelines de M1–M4, agrega sus anclas Q1 en `anchors_report.json`
+y es lo que produce las cifras finales para el paper (la skill `/experiment-run` cubre lanzar pipelines
+individuales de forma reproducible).
 
 ## 6. Flujo de trabajo por modelo
 
@@ -177,7 +179,7 @@ datos y el Modelo 2:
 4. `/code-review` + `security-reviewer` → calidad y verificación de que no se exponen datos sensibles.
 5. `superpowers:verification-before-completion` → suite + ruff + format + mypy en verde.
 6. `superpowers:finishing-a-development-branch` → merge a `main`.
-7. `/experiment-run` (Fase 6) → entrenamiento real reproducible en Colab y registro de métricas.
+7. Fase 6 → `notebooks/run_anchors.py --profile full` en Colab/GPU produce las anclas Q1 (`anchors_report.json`); `/experiment-run` para pipelines individuales reproducibles.
 
 ## 7. Criterios de "done publicable" (Q1)
 
