@@ -1,0 +1,30 @@
+{
+  "seed": 8,
+  "hyperparameters": {
+    "checkpoint": "runs/anchors_full_ms/seed_8/gan/wgan_gp/best.pt",
+    "z_dim": 64,
+    "e_dim": 16,
+    "channels": 64,
+    "n_emitters": 8,
+    "alphas": [
+      0.25,
+      0.5,
+      0.75
+    ],
+    "extrapolate": false,
+    "samples_per_type": 2500,
+    "out_path": "runs/anchors_full_ms/seed_8/gan/synthetic.h5",
+    "library_path": "configs/temporal_cnn_elint/emitters.yaml",
+    "n_real_compare": 4000,
+    "seed": 8,
+    "device": "cuda"
+  },
+  "config_hash": "55d9deeb7a11947c9b06e097d06544642a50d3b586c4c5f2bf0e4fa524940a72",
+  "checkpoint_hash": "1cbeb0e2c1d26511070ee26f6f54ac276e183318846c7c77648b2798611e418f",
+  "dependencies": {
+    "python": "3.11.15",
+    "torch": "2.6.0+cu124",
+    "numpy": "2.4.6",
+    "h5py": "3.16.0"
+  }
+}

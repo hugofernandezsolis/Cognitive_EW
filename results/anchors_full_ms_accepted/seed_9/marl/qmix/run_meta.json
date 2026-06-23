@@ -1,0 +1,134 @@
+{
+  "seed": 9,
+  "hyperparameters": {
+    "env": {
+      "library_path": "configs/temporal_cnn_elint/emitters.yaml",
+      "effectiveness": {
+        "noise": {
+          "search": 0.8,
+          "tws": 0.5,
+          "track": 0.1,
+          "missile_guidance": 0.1
+        },
+        "drfm_repeater": {
+          "search": 0.1,
+          "tws": 0.4,
+          "track": 0.7,
+          "missile_guidance": 0.4
+        },
+        "deception": {
+          "search": 0.5,
+          "tws": 0.7,
+          "track": 0.4,
+          "missile_guidance": 0.3
+        },
+        "cross_eye": {
+          "search": 0.0,
+          "tws": 0.2,
+          "track": 0.9,
+          "missile_guidance": 0.7
+        },
+        "vgpo": {
+          "search": 0.0,
+          "tws": 0.3,
+          "track": 0.8,
+          "missile_guidance": 0.5
+        },
+        "rgpo": {
+          "search": 0.0,
+          "tws": 0.3,
+          "track": 0.8,
+          "missile_guidance": 0.7
+        },
+        "chaff": {
+          "search": 0.1,
+          "tws": 0.3,
+          "track": 0.5,
+          "missile_guidance": 0.8
+        },
+        "decoy": {
+          "search": 0.4,
+          "tws": 0.5,
+          "track": 0.4,
+          "missile_guidance": 0.6
+        },
+        "evasive": {
+          "search": 0.2,
+          "tws": 0.2,
+          "track": 0.3,
+          "missile_guidance": 0.5
+        },
+        "none": {
+          "search": 0.0,
+          "tws": 0.0,
+          "track": 0.0,
+          "missile_guidance": 0.0
+        }
+      },
+      "suppression_techniques": [
+        "noise",
+        "drfm_repeater",
+        "vgpo",
+        "rgpo",
+        "cross_eye",
+        "chaff"
+      ],
+      "emitters": [
+        "S-300",
+        "S-400"
+      ],
+      "n_agents": 4,
+      "n_radars": 4,
+      "power_levels": [
+        0.0,
+        10.0,
+        20.0,
+        30.0
+      ],
+      "burnthrough": 15.0,
+      "eff_threshold": 0.5,
+      "js_scale": 20.0,
+      "lock_gain": 0.15,
+      "lock_decay": 0.15,
+      "n_eccm": 3,
+      "w_lock": 1.0,
+      "lambda_power": 0.5,
+      "w_supp": 1.0,
+      "r_win": 10.0,
+      "r_lose": 10.0,
+      "horizon_t": 64,
+      "seed": 0
+    },
+    "agent": {
+      "hidden": 64,
+      "mixer_embed_dim": 32,
+      "hypernet_hidden": 64,
+      "gamma": 0.99,
+      "lr": 0.0005,
+      "batch_episodes": 8,
+      "buffer_episodes": 2000,
+      "target_sync": 200,
+      "epsilon_start": 1.0,
+      "epsilon_end": 0.05,
+      "epsilon_decay_steps": 2000,
+      "learning_starts_episodes": 32,
+      "double_q": true,
+      "grad_clip": 10.0
+    },
+    "total_episodes": 4000,
+    "eval_episodes": 50,
+    "eval_every": 200,
+    "device": "cuda",
+    "seed": 9,
+    "out_dir": "runs/anchors_full_ms/seed_9/marl/qmix",
+    "tracking": false,
+    "regime": "qmix"
+  },
+  "config_hash": "a082efa39c9de8a395b9f1e2bea59ab891827f593f81ae85ca35b54d9e12cf54",
+  "dependencies": {
+    "python": "3.11.15",
+    "torch": "2.6.0+cu124",
+    "numpy": "2.4.6",
+    "gymnasium": "1.3.0"
+  }
+}

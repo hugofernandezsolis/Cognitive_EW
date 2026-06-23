@@ -1,0 +1,59 @@
+{
+  "seed": 3,
+  "hyperparameters": {
+    "data": {
+      "library_path": "configs/temporal_cnn_elint/emitters.yaml",
+      "emitters": null,
+      "modes": null,
+      "window": 64,
+      "n_pulses": 512,
+      "n_trains": 96,
+      "normalize": true,
+      "noise_std": 0.015,
+      "drop_prob": 0.01,
+      "spurious_prob": 0.01,
+      "seed": 0,
+      "feature_set": "v2"
+    },
+    "model": {
+      "in_channels": 18,
+      "seq_len": 64,
+      "hidden": 32,
+      "kernel_size": 5,
+      "dilations": [
+        1,
+        2,
+        4
+      ],
+      "n_types": 8,
+      "n_modes": 4,
+      "n_threats": 4,
+      "dropout": 0.05
+    },
+    "architecture": "v2",
+    "splits": [
+      0.7,
+      0.15,
+      0.15
+    ],
+    "batch_size": 128,
+    "epochs": 24,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "loss_weights": [
+      1.0,
+      1.1,
+      1.0
+    ],
+    "device": "cuda",
+    "seed": 3,
+    "out_dir": "runs/anchors_full_ms/seed_3/elint",
+    "tracking": false
+  },
+  "data_config_hash": "78daace0e0c348ffc539a87915c42c38b2488d83f16d5294c65d20a0a781c81b",
+  "dependencies": {
+    "python": "3.11.15",
+    "torch": "2.6.0+cu124",
+    "numpy": "2.4.6"
+  }
+}

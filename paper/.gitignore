@@ -1,0 +1,11 @@
+# LaTeX build artifacts (regenerable via latexmk)
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+main.pdf

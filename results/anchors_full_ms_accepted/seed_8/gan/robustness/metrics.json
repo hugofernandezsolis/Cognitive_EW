@@ -1,0 +1,12 @@
+{
+  "baseline": 0.0,
+  "augmented": 0.5,
+  "delta": 0.5,
+  "relative_improvement": 0.5,
+  "global": {
+    "baseline": 0.66004465933417,
+    "augmented": 0.7675952817044365
+  },
+  "latency_mean_ms": 1.1839598587539513,
+  "latency_p99_ms": 2.2008894392638436
+}

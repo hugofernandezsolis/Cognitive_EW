@@ -1,0 +1,8 @@
+{
+  "win_rate": 0.0,
+  "suppressed_fraction": 0.0,
+  "best_win_rate": 0.0,
+  "best_suppressed_fraction": 0.25,
+  "latency_mean_ms": 0.1377460804360453,
+  "latency_p99_ms": 0.1937394096603383
+}

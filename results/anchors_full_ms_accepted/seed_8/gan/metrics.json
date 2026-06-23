@@ -1,0 +1,18 @@
+{
+  "continuous_in_range_frac": 1.0,
+  "categorical_onehot_frac": 1.0,
+  "wasserstein1_per_feature": [
+    0.03225377008884104,
+    0.012003420618501803,
+    0.004279186462349301,
+    0.052888878417264064,
+    0.0047510640279824976
+  ],
+  "wasserstein1_mean": 0.02123526392298774,
+  "categorical_tv_distance": 0.08388071977416832,
+  "mean_intersample_std": 0.25944238901138306,
+  "n_distinct_categorical_patterns": 2385.0,
+  "n_types": 92,
+  "coverage": 1.0,
+  "n_windows": 230000
+}
